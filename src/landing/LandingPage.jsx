@@ -5,24 +5,36 @@ import {
   Scissors, Stethoscope, Dumbbell, Briefcase, Zap,
   Printer, Layout, ShieldCheck, Smartphone, 
   Activity, Globe, Hexagon, Layers, Box, Command,
-  LogIn, Search
+  LogIn, Search, Loader2
 } from 'lucide-react';
+
+// --- IMPORTANTE: Reemplaza estas rutas con la ubicación real de tus imágenes ---
+// Imagen 1: Login (Hola!)
+import imgLogin from '../assets/login.png'; 
+// Imagen 2: Perfil (Crea tu perfil)
+import imgProfile from '../assets/perfil.png';
+// Imagen 3: Calendario (Reservar Turno - IMAGEN PRINCIPAL)
+import imgMain from '../assets/turno.png';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [shopNameInput, setShopNameInput] = useState('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // Función para redirigir al subdominio del cliente
+  // --- LÓGICA DE REDIRECCIÓN REAL ---
   const handleTenantLogin = (e) => {
       e.preventDefault();
       if (!shopNameInput.trim()) return;
       
-      // Limpiamos el input (convertir a slug, minúsculas, sin espacios)
+      setIsRedirecting(true);
+
+      // Limpiamos el input
       const subdomain = shopNameInput.toLowerCase().replace(/[^a-z0-9-]/g, '');
       
-      // En producción esto sería: window.location.href = `https://${subdomain}.turnomov.com.ar`;
-      alert(`Redirigiendo a: https://${subdomain}.turnomov.com.ar\n(Simulación SaaS)`);
+      setTimeout(() => {
+          window.location.href = `https://${subdomain}.turnomov.com.ar`;
+      }, 800);
   };
 
   const features = [
@@ -65,9 +77,9 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-orange-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-orange-500/30 overflow-x-hidden">
       
-      {/* MODAL LOGIN DE CLIENTE (BUSCADOR DE TENANT) */}
+      {/* MODAL LOGIN */}
       {showLoginModal && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200 backdrop-blur-sm">
             <div className="bg-slate-900 border border-slate-700 p-8 rounded-2xl w-full max-w-md relative shadow-2xl">
@@ -77,25 +89,28 @@ export default function LandingPage() {
                         <Clock size={32} className="text-orange-500" />
                     </div>
                     <h3 className="text-2xl font-bold text-white">Ingresa a tu Taller</h3>
-                    <p className="text-slate-400 mt-2">Escribe el nombre de tu negocio para ir a tu panel.</p>
+                    <p className="text-slate-400 mt-2">Escribe el identificador de tu negocio.</p>
                 </div>
                 <form onSubmit={handleTenantLogin} className="space-y-4">
                     <div className="relative">
                         <Search className="absolute left-4 top-3.5 text-slate-500" size={20} />
                         <input 
                             autoFocus
+                            required
                             value={shopNameInput}
                             onChange={(e)=>setShopNameInput(e.target.value)}
-                            placeholder="Ej: bicperbanda" 
+                            placeholder="Ej: demo, bicperbanda" 
                             className="w-full bg-slate-950 border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition"
+                            disabled={isRedirecting}
                         />
                     </div>
-                    <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-orange-900/20">
-                        Ir a mi Panel
+                    <button type="submit" disabled={isRedirecting} className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-orange-900/20 flex items-center justify-center gap-2">
+                        {isRedirecting ? <><Loader2 className="animate-spin"/> Entrando...</> : 'Ir a mi Panel'}
                     </button>
-                    <p className="text-xs text-center text-slate-500 mt-4">
-                        ¿Sos cliente final? Pídele el link directo a tu proveedor.
-                    </p>
+                    <div className="text-xs text-center text-slate-500 mt-4 bg-slate-800/50 p-2 rounded border border-slate-800">
+                        <p className="font-bold text-slate-400 mb-1">¿Querés probar?</p>
+                        Usa el código: <span className="text-orange-400 font-mono cursor-pointer hover:underline" onClick={()=>setShopNameInput('demo')}>demo</span>
+                    </div>
                 </form>
             </div>
           </div>
@@ -106,7 +121,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* LOGO */}
-            <div className="flex items-center gap-2 group cursor-pointer">
+            <div className="flex items-center gap-2 group cursor-pointer" onClick={() => window.scrollTo(0,0)}>
               <div className="relative">
                 <div className="absolute inset-0 bg-orange-500 blur-lg opacity-20 group-hover:opacity-40 transition duration-500"></div>
                 <div className="relative w-9 h-9 bg-gradient-to-tr from-slate-900 to-slate-800 border border-slate-700 rounded-xl flex items-center justify-center text-white shadow-xl group-hover:scale-105 transition duration-300">
@@ -115,7 +130,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="flex flex-col justify-center -space-y-1">
-                <span className="text-lg font-bold text-white tracking-tight leading-none group-hover:text-orange-500 transition duration-300">Turnomov</span>
+                <span className="text-lg font-bold text-white tracking-tight leading-none group-hover:text-orange-500 transition duration-300">TurnoMov</span>
                 <span className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold">Business OS</span>
               </div>
             </div>
@@ -124,7 +139,6 @@ export default function LandingPage() {
               <a href="#beneficios" className="text-sm font-medium hover:text-white transition">Funcionalidades</a>
               <a href="#rubros" className="text-sm font-medium hover:text-white transition">Rubros</a>
               
-              {/* Botón Login para Clientes (Dueños de taller) */}
               <button 
                 onClick={() => setShowLoginModal(true)}
                 className="text-sm font-bold text-slate-300 hover:text-white transition flex items-center gap-2 px-4 py-2 hover:bg-slate-800 rounded-lg"
@@ -132,7 +146,7 @@ export default function LandingPage() {
                 <LogIn size={16} /> Soy Cliente
               </button>
 
-              <button className="bg-slate-100 text-slate-900 px-5 py-2 rounded-full font-bold text-sm hover:bg-white transition hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+              <button onClick={() => setShowLoginModal(true)} className="bg-slate-100 text-slate-900 px-5 py-2 rounded-full font-bold text-sm hover:bg-white transition hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                 Empezar Gratis
               </button>
             </div>
@@ -149,7 +163,8 @@ export default function LandingPage() {
         {isMenuOpen && (
           <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 space-y-4">
             <a href="#beneficios" className="block text-sm font-medium text-slate-400 hover:text-white">Funcionalidades</a>
-            <button onClick={() => setShowLoginModal(true)} className="block w-full text-left text-sm font-medium text-slate-400 hover:text-white">Ingresar (Login)</button>
+            <a href="#rubros" className="block text-sm font-medium text-slate-400 hover:text-white">Rubros</a>
+            <button onClick={() => {setIsMenuOpen(false); setShowLoginModal(true);}} className="block w-full text-left text-sm font-medium text-slate-400 hover:text-white">Ingresar (Login)</button>
             <button className="w-full bg-orange-600 text-white px-5 py-3 rounded-xl font-bold text-sm">
               Crear Cuenta
             </button>
@@ -158,7 +173,8 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO SECTION */}
-      <div className="relative overflow-hidden pt-20 pb-20">
+      <div className="relative pt-20 pb-20">
+        {/* Background Gradients */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-orange-600/10 rounded-full blur-[120px] -z-10"></div>
         
         <div className="max-w-7xl mx-auto px-4 text-center">
@@ -180,7 +196,7 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="w-full sm:w-auto px-8 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-bold text-lg transition shadow-xl shadow-orange-900/20 flex items-center justify-center gap-2 hover:-translate-y-0.5">
+            <button onClick={() => setShowLoginModal(true)} className="w-full sm:w-auto px-8 py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-bold text-lg transition shadow-xl shadow-orange-900/20 flex items-center justify-center gap-2 hover:-translate-y-0.5">
               Crear mi Taller <ArrowRight size={20} />
             </button>
             <button onClick={() => setShowLoginModal(true)} className="w-full sm:w-auto px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 rounded-2xl font-bold text-lg transition flex items-center justify-center gap-2 hover:-translate-y-0.5">
@@ -201,37 +217,62 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* UI PREVIEW MOCKUP */}
-          <div className="mt-20 relative mx-auto max-w-5xl">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-2 shadow-2xl">
-              <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-900 aspect-video relative flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950">
-                <div className="absolute inset-0 p-8 opacity-40 blur-sm pointer-events-none flex flex-col gap-4">
-                    <div className="flex gap-4">
-                        <div className="w-1/4 h-32 bg-slate-800 rounded-xl"></div>
-                        <div className="w-1/4 h-32 bg-slate-800 rounded-xl"></div>
-                        <div className="w-1/4 h-32 bg-slate-800 rounded-xl"></div>
-                        <div className="w-1/4 h-32 bg-slate-800 rounded-xl"></div>
+          {/* --- UI PREVIEW: IMÁGENES CARGADAS --- */}
+          <div className="mt-20 relative max-w-6xl mx-auto">
+             {/* Glow effect behind phones */}
+             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-blue-500/20 blur-[100px] rounded-full -z-10"></div>
+             
+             <div className="flex flex-col md:flex-row justify-center items-center gap-8 md:gap-0 perspective-1000">
+                
+                {/* 1. Izquierda: Login Screen */}
+                <div className="relative w-64 md:w-72 md:-mr-12 md:mt-12 z-10 transition-all duration-500 hover:z-30 hover:scale-105">
+                    <img 
+                        src={imgLogin} 
+                        alt="Pantalla de Login Turnomov" 
+                        className="w-full h-auto rounded-[2.5rem] border-[6px] border-slate-900 shadow-2xl"
+                    />
+                </div>
+
+                {/* 2. Centro: Main Calendar (Featured) */}
+                <div className="relative w-72 md:w-80 z-20 shadow-[0_0_50px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-105">
+                    <img 
+                        src={imgMain} 
+                        alt="Pantalla de Reservas Turnomov" 
+                        className="w-full h-auto rounded-[2.5rem] border-[6px] border-slate-800 shadow-2xl"
+                    />
+                    {/* Badge flotante decorativo */}
+                    <div className="absolute -right-4 top-20 bg-slate-800/90 backdrop-blur border border-slate-700 p-3 rounded-xl shadow-lg flex items-center gap-3 animate-in slide-in-from-left-4 fade-in duration-700 delay-300 hidden md:flex">
+                        <div className="bg-green-500/20 p-2 rounded-lg text-green-500"><CheckCircle size={20} /></div>
+                        <div className="text-left">
+                            <p className="text-xs text-slate-400 font-bold uppercase">Turno Reservado</p>
+                            <p className="text-white font-bold text-sm">Confirmación Inmediata</p>
+                        </div>
                     </div>
-                    <div className="flex-1 bg-slate-800 rounded-xl"></div>
                 </div>
-                <div className="z-10 text-center space-y-6 max-w-lg">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-slate-800 border border-slate-700 text-blue-500 mb-2 shadow-2xl relative group">
-                    <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full group-hover:bg-blue-500/40 transition-all duration-500"></div>
-                    <Layout size={40} className="relative z-10" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white">Panel de Control en Tiempo Real</h3>
-                  <p className="text-slate-400">
-                    Visualizá turnos pendientes, trabajos en proceso y servicios terminados en una sola pantalla. Gestión de roles para dueños y empleados.
-                  </p>
+
+                {/* 3. Derecha: Profile Screen */}
+                <div className="relative w-64 md:w-72 md:-ml-12 md:mt-12 z-10 transition-all duration-500 hover:z-30 hover:scale-105">
+                     <img 
+                        src={imgProfile} 
+                        alt="Pantalla de Perfil Turnomov" 
+                        className="w-full h-auto rounded-[2.5rem] border-[6px] border-slate-900 shadow-2xl"
+                    />
                 </div>
-              </div>
-            </div>
+             </div>
+             
+             <div className="mt-12 text-center">
+                 <p className="text-slate-500 text-sm flex items-center justify-center gap-2">
+                    <Smartphone size={16} /> Interfaz 100% Mobile First
+                 </p>
+             </div>
           </div>
+          {/* --- FIN UI PREVIEW --- */}
+
         </div>
       </div>
 
-      {/* FEATURES GRID */}
-      <div id="beneficios" className="py-24 bg-slate-900/30 border-y border-slate-800/50">
+      {/* FEATURES */}
+      <div id="beneficios" className="py-24 bg-slate-900/30 border-y border-slate-800/50 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-white mb-4">Funcionalidades Profesionales</h2>
@@ -251,8 +292,8 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* OPERATIONAL METRICS SECTION */}
-      <div id="metricas" className="py-24 max-w-7xl mx-auto px-4">
+      {/* METRICS */}
+      <div id="metricas" className="py-24 max-w-7xl mx-auto px-4 scroll-mt-24">
          <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8 md:p-12 overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-[80px] group-hover:bg-blue-600/20 transition duration-1000"></div>
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -265,7 +306,6 @@ export default function LandingPage() {
                         Turnomov no solo agenda, mide. Nuestro sistema registra automáticamente cuándo ingresa un trabajo y cuándo se termina.
                     </p>
                 </div>
-                {/* Stats Preview Card */}
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl relative hover:border-slate-700 transition duration-300">
                     <div className="flex justify-between items-center mb-6">
                         <h4 className="text-white font-bold flex items-center gap-2"><Users size={18} className="text-slate-400"/> Productividad del Staff</h4>
@@ -285,6 +325,23 @@ export default function LandingPage() {
                 </div>
             </div>
          </div>
+      </div>
+
+      {/* RUBROS */}
+      <div id="rubros" className="py-24 max-w-7xl mx-auto px-4 bg-slate-950 scroll-mt-24">
+        <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-white mb-4">Adaptable a tu Industria</h2>
+            <p className="text-slate-400">Configurá los tipos de servicio (Mantenimiento, Consulta, Clase) según tu necesidad.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {rubros.map((rubro, i) => (
+                <div key={i} className="flex flex-col items-center text-center p-6 rounded-2xl bg-slate-900/50 hover:bg-slate-900 border border-transparent hover:border-slate-800 transition hover:shadow-lg hover:shadow-orange-500/5 group">
+                    <div className="text-orange-500 bg-orange-500/10 p-4 rounded-2xl mb-4 mb-3 group-hover:scale-110 transition duration-300">{rubro.icon}</div>
+                    <h4 className="text-white font-bold text-lg mb-1">{rubro.name}</h4>
+                    <p className="text-slate-500 text-sm">{rubro.desc}</p>
+                </div>
+            ))}
+        </div>
       </div>
 
       {/* FOOTER */}
