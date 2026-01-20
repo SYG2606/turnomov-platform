@@ -1,26 +1,23 @@
+// src/turnos/TurnosApp.jsx
 import React, { useState, useEffect } from 'react';
 import bcrypt from 'bcryptjs'; 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, runTransaction, where, getDocs, setDoc } from 'firebase/firestore';
+import { useTenant } from '../saas/TenantProvider'; // Asegúrate que la ruta sea correcta
 
-// SECCIÓN DE ICONOS PARA CUBRIR TODAS LAS INDUSTRIAS
+// SECCIÓN DE ICONOS
 import { 
   Calendar, Clock, Wrench, User, LogOut, CheckCircle, XCircle, AlertCircle, 
   Bike, ClipboardList, Plus, Loader2, MessageCircle, Shield, Users, Lock, 
   Sun, Moon, Search, Settings, BarChart3, Printer, FileText, Timer, Store, 
   RotateCcw, Eye, EyeOff, Edit, History, Trash2, Image as ImageIcon, Upload, 
   ArrowRight, Filter, Layout, List, CalendarX, Mail, FileClock, Save,
-  // Nuevos Iconos Agregados:
-  Smartphone, Cpu, Laptop, // Tech
-  Scissors, Sparkles, Gem, // Belleza
-  Dumbbell, Trophy, Activity, // Deportes
-  Stethoscope, Heart, Pill, // Salud
-  Car, Key, // Automotriz
-  PawPrint, Bone // Mascotas
+  Smartphone, Cpu, Laptop, Scissors, Sparkles, Gem, Dumbbell, Trophy, Activity, 
+  Stethoscope, Heart, Pill, Car, Key, PawPrint, Bone 
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN FIREBASE ---
+// --- 1. CONFIGURACIÓN FIREBASE (ESTO SE QUEDA AFUERA) ---
 const firebaseConfig = {
   apiKey: "AIzaSyD5BVLXg7XUYm_B6cyv3hRIoYow1W0wWYg",
   authDomain: "turnos-bikes-app-98635.firebaseapp.com",
@@ -30,7 +27,7 @@ const firebaseConfig = {
   appId: "mi-taller-bici", 
 };
 
-// Inicialización segura de Firebase
+// Inicialización segura
 let app, auth, db;
 try {
   app = initializeApp(firebaseConfig);
@@ -40,23 +37,8 @@ try {
   console.error("Error inicializando Firebase:", e);
 }
 
-const appId = "mi-taller-bici"; 
-
-// --- MAPA DE ICONOS DINÁMICOS ---
-const IconMap = {
-  Bike, Wrench,           // Bicis
-  Smartphone, Cpu,        // Tech
-  Scissors, Sparkles,     // Belleza
-  Dumbbell, Trophy,       // Deportes
-  Stethoscope, Heart,     // Salud
-  Car, Key,               // Autos
-  PawPrint, Bone          // Mascotas
-};
-
-// --- CONFIGURACIÓN MAESTRA MULTI-INDUSTRIA (SAAS) ---
-// --- CONFIGURACIÓN MAESTRA MULTI-INDUSTRIA (SAAS) ---
+// --- 2. CONFIGURACIÓN MAESTRA (ESTO SE QUEDA AFUERA) ---
 const INDUSTRIES = {
-  // 1. BICICLETAS
   bikes: {
     label: "Taller de Bicicletas",
     itemLabel: "Modelo de Bici",
@@ -68,7 +50,6 @@ const INDUSTRIES = {
     statusLabels: { pending: 'En Espera', received: 'En Taller', process: 'En Reparación', ready: 'Listo para Retirar' },
     disclaimer: "AUTORIZO LA REPARACIÓN. EL TALLER NO SE RESPONSABILIZA POR EFECTOS PERSONALES DEJADOS EN LA UNIDAD."
   },
-  // 2. TECNOLOGÍA
   tech: {
     label: "Servicio Técnico",
     itemLabel: "Dispositivo",
@@ -80,7 +61,6 @@ const INDUSTRIES = {
     statusLabels: { pending: 'En Espera', received: 'Ingresado', process: 'En Diagnóstico/Rep', ready: 'Listo para Retirar' },
     disclaimer: "AUTORIZO EL DIAGNÓSTICO Y REPARACIÓN. LA EMPRESA NO SE RESPONSABILIZA POR LA PÉRDIDA DE DATOS NO RESGUARDADOS."
   },
-  // 3. BELLEZA
   beauty: {
     label: "Estética y Belleza",
     itemLabel: "Cliente",
@@ -92,7 +72,6 @@ const INDUSTRIES = {
     statusLabels: { pending: 'Reservado', received: 'En Sala de Espera', process: 'Siendo Atendido', ready: 'Finalizado' },
     disclaimer: "EL CLIENTE ACEPTA LOS PROCEDIMIENTOS ESTÉTICOS A REALIZAR Y SUS POSIBLES CUIDADOS POSTERIORES."
   },
-  // 4. DEPORTES
   sports: {
     label: "Complejo Deportivo",
     itemLabel: "Cancha",
@@ -104,7 +83,6 @@ const INDUSTRIES = {
     statusLabels: { pending: 'Reservado', received: 'Check-in Realizado', process: 'Jugando', ready: 'Turno Finalizado' },
     disclaimer: "EL USUARIO SE COMPROMETE A CUIDAR LAS INSTALACIONES. EL CLUB NO SE RESPONSABILIZA POR LESIONES DEPORTIVAS."
   },
-  // 5. AUTOMOTRIZ (NUEVO)
   cars: {
     label: "Taller Automotriz",
     itemLabel: "Vehículo",
@@ -116,7 +94,6 @@ const INDUSTRIES = {
     statusLabels: { pending: 'Turno Solicitado', received: 'Vehículo Ingresado', process: 'En Reparación', ready: 'Listo para Retirar' },
     disclaimer: "AUTORIZO EL TRABAJO MECÁNICO. EL TALLER NO SE RESPONSABILIZA POR OBJETOS DE VALOR DEJADOS EN EL VEHÍCULO."
   },
-  // 6. VETERINARIA (NUEVO)
   pets: {
     label: "Clínica Veterinaria",
     itemLabel: "Mascota",
@@ -128,7 +105,6 @@ const INDUSTRIES = {
     statusLabels: { pending: 'Cita Agendada', received: 'En Sala de Espera', process: 'En Consulta', ready: 'Alta Médica' },
     disclaimer: "EL DUEÑO AUTORIZA LOS PROCEDIMIENTOS VETERINARIOS NECESARIOS PARA EL BIENESTAR DE LA MASCOTA."
   },
-  // 7. SALUD (NUEVO)
   health: {
     label: "Consultorio Médico",
     itemLabel: "Paciente",
@@ -141,16 +117,20 @@ const INDUSTRIES = {
     disclaimer: "LA INFORMACIÓN MÉDICA ES CONFIDENCIAL Y ESTÁ PROTEGIDA POR EL SECRETO PROFESIONAL."
   }
 };
-const GENERIC_PASS = "Turno2026";
 
-// --- HELPERS ---
+const IconMap = {
+  Bike, Wrench, Smartphone, Cpu, Scissors, Sparkles, Dumbbell, Trophy, 
+  Stethoscope, Heart, Car, Key, PawPrint, Bone 
+};
+
+const GENERIC_PASS = "Turno2026";
 const formatDateForQuery = (d) => d.toISOString().split('T')[0];
 const formatDisplayDate = (d) => {
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
   return { dayName: days[d.getDay()], date: `${d.getDate()}/${d.getMonth()+1}` };
 };
 
-// --- COMPONENTES UI ---
+// Componentes UI simples (fuera para no recrearlos en cada render)
 const Button = ({ children, onClick, variant = 'primary', className = '', disabled, ...props }) => {
   const variants = {
     primary: 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-900/20 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed',
@@ -188,8 +168,18 @@ const Badge = ({ status, labels }) => {
   return <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${styles[status] || styles['pendiente']}`}>{displayText}</span>;
 };
 
-// --- APP PRINCIPAL ---
-export default function App() {
+
+// --- 3. APP PRINCIPAL (EL COMPONENTE) ---
+// Cambiamos el nombre a TurnosApp para no confundir con el wrapper
+export default function TurnosApp() { 
+  // --- AQUI DENTRO VA EL HOOK (ESTA ERA LA FALLA) ---
+  const { tenant } = useTenant();
+  
+  // Variables dependientes del tenant
+  const appId = tenant?.id;
+  const sessionKey = appId ? `bikes_app_user_${appId}` : null;
+
+  // Estados
   const [user, setUser] = useState(null);
   const [appUser, setAppUser] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -202,27 +192,26 @@ export default function App() {
   // Configuración Principal
   const [shopConfig, setShopConfig] = useState({ 
     workDays: [1, 3, 5], 
-    shopName: 'TurnoMov', 
-    shopAddress: 'Calle Falsa 123', 
-    shopPhone: '11 2233 4455', 
+    shopName: 'Cargando...', 
+    shopAddress: '...', 
+    shopPhone: '', 
     maxPerDay: 4, 
     logoUrl: '', 
     lastOrderNumber: 1000,
     blockedDates: [],
     implementationDate: '', 
-    // CONFIG DE AGENDA
-    scheduleMode: 'blocks', // 'blocks' o 'slots'
-    slotDuration: 60,       // minutos
+    scheduleMode: 'blocks',
+    slotDuration: 60,
     openHour: 9, 
     closeHour: 18, 
     industry: 'bikes' 
   });
 
-  // --- VARIABLES DINÁMICAS (CRÍTICO QUE ESTÉN AQUÍ) ---
+  // Variables dinámicas (Seguras con fallback)
   const activeIndustry = INDUSTRIES[shopConfig.industry] || INDUSTRIES.bikes;
   const availableServices = shopConfig.customServices || activeIndustry.defaultServices;
-  const ItemIcon = IconMap[activeIndustry.icons.item];
-  const StaffIcon = IconMap[activeIndustry.icons.staff];
+  const ItemIcon = IconMap[activeIndustry.icons.item] || Bike;
+  const StaffIcon = IconMap[activeIndustry.icons.staff] || Wrench;
 
   const [configSuccess, setConfigSuccess] = useState(false);
   const [dateToBlock, setDateToBlock] = useState('');
@@ -256,7 +245,7 @@ export default function App() {
   const [isNewClient, setIsNewClient] = useState(false);
   const [adminFormData, setAdminFormData] = useState({ 
     name: '', bikeModel: '', phone: '', date: '', 
-    serviceType: availableServices[0], // Usar availableServices
+    serviceType: availableServices[0], 
     notes: '' 
   });
   const [showAdminApptModal, setShowAdminApptModal] = useState(false);
@@ -279,29 +268,6 @@ export default function App() {
   const [newMechName, setNewMechName] = useState('');
   const [newMechPassword, setNewMechPassword] = useState(GENERIC_PASS);
   const [newMechIsAdmin, setNewMechIsAdmin] = useState(false);
-  // --- FILTRADO DE TURNOS (CORREGIDO) ---
-  const filteredAppts = appointments.filter(a => {
-      const term = searchTerm.toLowerCase();
-      
-      // 1. Buscador (Match)
-      const orderStr = a.orderId ? a.orderId.toString() : '';
-      const match = orderStr.includes(term) || 
-                    (a.clientName || '').toLowerCase().includes(term) || 
-                    (a.bikeModel || '').toLowerCase().includes(term) || 
-                    (a.clientDni || '').includes(term);
-
-      // 2. Filtro de Estado
-      const status = statusFilter === 'all' || a.status === statusFilter;
-
-      // 3. Filtro de Fecha
-      let date = true;
-      if (dateFilterStart) {
-          date = new Date(a.date) >= new Date(dateFilterStart);
-      }
-
-      return match && status && date;
-  });
-
 
   // --- HOTFIX: Inyectar Tailwind CSS CDN ---
   useEffect(() => {
@@ -318,6 +284,7 @@ export default function App() {
   // Init Auth
   useEffect(() => {
     let isMounted = true;
+
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -325,56 +292,119 @@ export default function App() {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (err) { 
+      } catch (err) {
         console.error("Auth Error", err);
-        try { await signInAnonymously(auth); } catch (e) {
-             if (isMounted) {
-                setAuthError(`No se pudo conectar con la base de datos. (${err.code || e.code})`);
-                setLoading(false);
-            }
-        }
-      }
-    };
-    
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (!isMounted) return;
-      setUser(u);
-      if (u) {
-        const savedUser = localStorage.getItem('bikes_app_user_v8');
-        if (savedUser) {
-          const parsed = JSON.parse(savedUser);
-          if (parsed && parsed.dni) {
-            setAppUser(parsed);
-            setView(parsed.role === 'mechanic' ? 'mechanic-dashboard' : 'client-dashboard');
-            if (parsed.role === 'client') setClientBikeModel(parsed.bikeModel || '');
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          if (isMounted) {
+            setAuthError(`No se pudo conectar con la base de datos. (${err.code || e.code})`);
+            setLoading(false);
           }
         }
       }
-      setLoading(false);
-    }, (err) => {
-        if (isMounted) {
-              setAuthError("Error de sesión: " + err.message);
-              setLoading(false);
+    };
+
+    initAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (!isMounted) return;
+
+      setUser(u);
+
+      if (!sessionKey) {
+        // Aún no tenemos el tenant ID listo, seguimos cargando
+        return;
+      }
+
+      if (u) {
+        const savedUser = localStorage.getItem(sessionKey);
+        if (savedUser) {
+          const parsed = JSON.parse(savedUser);
+          if (parsed?.dni) {
+            setAppUser(parsed);
+            setView(parsed.role === 'mechanic'
+              ? 'mechanic-dashboard'
+              : 'client-dashboard'
+            );
+            if (parsed.role === 'client') {
+              setClientBikeModel(parsed.bikeModel || '');
+            }
+          }
         }
+      }
+
+      setLoading(false);
     });
-    return () => { isMounted = false; unsubscribe(); };
-  }, []);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [sessionKey]);
 
   // Data Sync
   useEffect(() => {
-    if (!user || !db) return;
-    const unsub1 = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'main'), s => s.exists() && setShopConfig(p => ({...p, ...s.data()})));
-    const unsub2 = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'turnos')), s => setAppointments(s.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>new Date(a.date)-new Date(b.date))));
-    const unsub3 = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'mechanics')), s => setMechanics(s.docs.map(d => ({id:d.id, ...d.data()}))));
-    const unsub4 = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'clients')), s => setClients(s.docs.map(d => ({id:d.id, ...d.data()}))));
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
-  }, [user]);
+    if (!user || !db || !tenant || !appId) return;
+
+    const basePath = ['artifacts', appId, 'public', 'data'];
+
+    const unsub1 = onSnapshot(
+      doc(db, ...basePath, 'config', 'main'),
+      s => s.exists() && setShopConfig(p => ({ ...p, ...s.data() }))
+    );
+
+    const unsub2 = onSnapshot(
+      collection(db, ...basePath, 'turnos'),
+      s =>
+        setAppointments(
+          s.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+        )
+    );
+
+    const unsub3 = onSnapshot(
+      collection(db, ...basePath, 'mechanics'),
+      s => setMechanics(s.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+
+    const unsub4 = onSnapshot(
+      collection(db, ...basePath, 'clients'),
+      s => setClients(s.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
+
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+      unsub4();
+    };
+  }, [user, tenant, appId]);
+
 
   // --- LOGIC ---
+  const filteredAppts = appointments.filter(a => {
+      const term = searchTerm.toLowerCase();
+      // 1. Buscador (Match)
+      const orderStr = a.orderId ? a.orderId.toString() : '';
+      const match = orderStr.includes(term) || 
+                    (a.clientName || '').toLowerCase().includes(term) || 
+                    (a.bikeModel || '').toLowerCase().includes(term) || 
+                    (a.clientDni || '').includes(term);
+      // 2. Filtro de Estado
+      const status = statusFilter === 'all' || a.status === statusFilter;
+      // 3. Filtro de Fecha
+      let date = true;
+      if (dateFilterStart) {
+          date = new Date(a.date) >= new Date(dateFilterStart);
+      }
+      return match && status && date;
+  });
+
   const handleLogout = () => {
       setAppUser(null);
-      localStorage.removeItem('bikes_app_user_v8');
+      localStorage.removeItem(sessionKey);
       setLoginDni(''); setLoginPassword(''); setLoginStep(1); setLoginError('');
       setView('login');
   };
@@ -468,17 +498,13 @@ export default function App() {
         setIsSubmitting(false);
     }
   };
-// ---
-// --- FUNCIONES FALTANTES (FIX CRÍTICO) ---
-  
-  // Función para resetear clave de un mecánico
+
   const triggerResetPassword = async (id, name) => {
       if (!window.confirm(`¿Resetear clave de ${name} a "${GENERIC_PASS}"?`)) return;
-      
       try {
-          const hashedPassword = await bcrypt.hash(GENERIC_PASS, 10); // Encriptamos la genérica
+          const hashedPassword = await bcrypt.hash(GENERIC_PASS, 10);
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'mechanics', id), {
-              password: hashedPassword, // Guardamos hash
+              password: hashedPassword,
               forcePasswordChange: true
           });
           alert("Clave reseteada correctamente.");
@@ -487,11 +513,8 @@ export default function App() {
       }
   };
   
-
-  // Función para eliminar un mecánico
   const triggerRemoveMechanic = async (id, name) => {
       if (!window.confirm(`¿Seguro que quieres eliminar a ${name}? Esta acción no se puede deshacer.`)) return;
-      
       try {
           await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'mechanics', id));
           alert("Usuario eliminado.");
@@ -499,16 +522,13 @@ export default function App() {
           alert("Error: " + e.message);
       }
   };
-//---
-  // --- GENERADOR DE HORARIOS (SLOTS) ---
+
   const generateTimeSlots = () => {
     const slots = [];
     let currentTime = new Date();
-    currentTime.setHours(shopConfig.openHour, 0, 0, 0); // Hora inicio
-
+    currentTime.setHours(shopConfig.openHour, 0, 0, 0);
     const endTime = new Date();
-    endTime.setHours(shopConfig.closeHour, 0, 0, 0);    // Hora fin
-
+    endTime.setHours(shopConfig.closeHour, 0, 0, 0);    
     while (currentTime < endTime) {
       const timeString = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       slots.push(timeString);
@@ -517,13 +537,10 @@ export default function App() {
     return slots;
   };
 
-  // --- LOGICA NUEVA PARA ADMIN APPOINTMENT ---
   const handleAdminDniSearch = async (e) => {
       e.preventDefault();
       if(!adminDniSearch) return;
-      
       const foundClient = clients.find(c => c.dni === adminDniSearch);
-      
       if (foundClient) {
           setIsNewClient(false);
           setAdminFormData(prev => ({ ...prev, name: foundClient.name, phone: foundClient.phone, bikeModel: foundClient.bikeModel || '' }));
@@ -543,8 +560,6 @@ export default function App() {
     setIsSubmitting(true);
     try {
         let finalClientId = 'admin-created';
-        
-        // Si es cliente nuevo, crearlo en la DB
         if (isNewClient) {
             const clientDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), { 
                 dni: adminDniSearch, 
@@ -582,7 +597,6 @@ export default function App() {
         setShowAdminApptModal(false); 
         setAdminApptStep(1);
         setAdminDniSearch('');
-        // FIX: Usamos availableServices en lugar de SERVICE_TYPES (que ya no existe)
         setAdminFormData({ name: '', bikeModel: '', phone: '', date: '', serviceType: availableServices[0], notes: '' });
     } catch (e) { alert("Error al crear: " + e.message); }
     finally { setIsSubmitting(false); }
@@ -594,13 +608,12 @@ export default function App() {
     if (!loginDni || !loginPassword) return setLoginError("Faltan datos");
     setLoading(true);
     
-    // Caso 1: Crear primer Admin (Encriptado) has
     if (mechanics.length === 0) {
-        const hashedPassword = await bcrypt.hash(loginPassword, 10); // Encriptamos
+        const hashedPassword = await bcrypt.hash(loginPassword, 10);
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mechanics'), { 
             dni: loginDni, 
             name: 'Admin Inicial', 
-            password: hashedPassword, // Guardamos hash
+            password: hashedPassword,
             isAdmin: true, 
             forcePasswordChange: false, 
             createdAt: new Date().toISOString() 
@@ -611,9 +624,7 @@ export default function App() {
 
     const mech = mechanics.find(m => m.dni === loginDni);
     if (mech) {
-        // Caso 2: Login normal (Comparar hash)
-        const isValid = await bcrypt.compare(loginPassword, mech.password); // Comparamos
-        
+        const isValid = await bcrypt.compare(loginPassword, mech.password);
         if (isValid) {
             if (mech.forcePasswordChange) {
                 setTempStaffId(mech.id); 
@@ -637,10 +648,10 @@ export default function App() {
       e.preventDefault();
       if (newPasswordForm.new !== newPasswordForm.confirm) return alert("No coinciden");
       
-      const hashedPassword = await bcrypt.hash(newPasswordForm.new, 10); // Encriptamos
+      const hashedPassword = await bcrypt.hash(newPasswordForm.new, 10);
       
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'mechanics', tempStaffId), { 
-          password: hashedPassword, // Guardamos hash
+          password: hashedPassword,
           forcePasswordChange: false 
       });
       alert("Clave actualizada."); finalizeLogin({ ...appUser, dni: loginDni });
@@ -661,7 +672,7 @@ export default function App() {
 
   const finalizeLogin = (u) => {
       setAppUser(u); if(u.role === 'client') setClientBikeModel(u.bikeModel || '');
-      localStorage.setItem('bikes_app_user_v8', JSON.stringify(u));
+      localStorage.setItem(sessionKey, JSON.stringify(u));
       setView(u.role === 'mechanic' ? 'mechanic-dashboard' : 'client-dashboard');
       setLoading(false);
   };
@@ -678,28 +689,16 @@ export default function App() {
       e.preventDefault();
       const { id, ...curr } = receptionModal.appt;
       const updates = { bikeModel: receptionModal.bikeModel, serviceType: receptionModal.serviceType, notes: receptionModal.notes };
-      
-      // 1. Actualizar DB
       await updateStatus(id, 'recibido', updates);
-      
-      // 2. Imprimir Orden con Troquel
       printServiceOrder({ ...curr, ...updates, id, orderId: receptionModal.appt.orderId, receivedBy: appUser.name });
-      
-      // 3. WhatsApp Automático
       const msg = `Hola ${receptionModal.appt.clientName}! 👋\n\nTu bici *${receptionModal.bikeModel}* ingresó al taller *${shopConfig.shopName}*.\n\n📋 Orden: #${receptionModal.appt.orderId}\n🔧 Servicio: ${receptionModal.serviceType}\n\nTe avisaremos cuando esté lista!`;
       const url = `https://wa.me/${receptionModal.appt.clientPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`;
       window.open(url, '_blank');
-      
       setReceptionModal(null);
   };
 
   const handleDeleteAppointment = async (id) => {
-      // 1. Pregunta directa del navegador (Infalible)
-      if (!window.confirm("⚠️ ¿ESTÁS SEGURO?\n\nEsta acción eliminará el turno permanentemente.")) {
-          return; // Si dice "Cancelar", no hacemos nada
-      }
-
-      // 2. Si dice "Aceptar", borramos directo
+      if (!window.confirm("⚠️ ¿ESTÁS SEGURO?\n\nEsta acción eliminará el turno permanentemente.")) return;
       try {
           await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'turnos', id));
           alert("✅ Turno eliminado correctamente.");
@@ -746,15 +745,14 @@ export default function App() {
       e.preventDefault();
       if(!user) return alert("Sin conexión. Recarga.");
       if(!newMechDni || !newMechName) return alert("Faltan datos");
-      
       if (mechanics.some(m => m.dni === newMechDni)) return alert("DNI ya registrado");
 
       try {
-        const hashedPassword = await bcrypt.hash(newMechPassword, 10); // Encriptamos
+        const hashedPassword = await bcrypt.hash(newMechPassword, 10);
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'mechanics'), {
             dni: newMechDni, 
             name: newMechName, 
-            password: hashedPassword, // Guardamos hash
+            password: hashedPassword, 
             isAdmin: newMechIsAdmin, 
             forcePasswordChange: true, 
             createdAt: new Date().toISOString()
@@ -775,7 +773,6 @@ export default function App() {
       } catch (err) { console.error(err); alert("Error al actualizar cliente."); }
   };
 
-  // --- FUNCIÓN DE IMPRESIÓN MEJORADA (CON TROQUEL) ---
   const printServiceOrder = (appt) => {
     const logoHtml = shopConfig.logoUrl ? `<img src="${shopConfig.logoUrl}" style="max-height:60px;display:block;margin:0 auto 10px"/>` : '';
     const now = new Date().toLocaleDateString();
@@ -862,18 +859,6 @@ export default function App() {
     }, 500);
   };
 
-  const getFilteredAppointments = () => {
-    const term = searchTerm.toLowerCase();
-    return appointments.filter(a => {
-        const orderStr = a.orderId ? a.orderId.toString() : '';
-        const match = orderStr.includes(term) || a.clientName.toLowerCase().includes(term) || a.bikeModel.toLowerCase().includes(term) || a.clientDni.includes(term);
-        const status = statusFilter === 'all' || a.status === statusFilter;
-        let date = true;
-        if (dateFilterStart) date = new Date(a.date) >= new Date(dateFilterStart);
-        return match && status && date;
-    });
-  };
-
   const getStatsAppointments = () => {
       const now = new Date();
       return appointments.filter(a => {
@@ -894,9 +879,7 @@ export default function App() {
     let loops = 0;
     while (dates.length < 6 && loops < 60) { 
         const dateStr = formatDateForQuery(d);
-        // Verificar feriados
         const isBlocked = shopConfig.blockedDates && shopConfig.blockedDates.includes(dateStr);
-        // Verificar días laborables
         if(shopConfig.workDays.includes(d.getDay())) {
              dates.push({ date: new Date(d), isBlocked, dateStr }); 
         }
@@ -944,10 +927,13 @@ export default function App() {
 
   const printList = () => {
     const list = filteredAppts;
-    
     const content = `<html><head><title>Reporte</title><style>table{width:100%;border-collapse:collapse;font-family:sans-serif}th,td{border:1px solid #ddd;padding:8px}th{background-color:#f2f2f2}</style></head><body><h1>Reporte Turnos</h1><table><thead><tr><th>Orden</th><th>Fecha</th><th>Cliente</th><th>Bici</th><th>Servicio</th><th>Estado</th></tr></thead><tbody>${list.map(a=>`<tr><td>${a.orderId ? '#'+a.orderId : a.id.slice(0,6)}</td><td>${new Date(a.date).toLocaleDateString()}</td><td>${a.clientName}</td><td>${a.bikeModel}</td><td>${a.serviceType}</td><td>${a.status}</td></tr>`).join('')}</tbody></table></body></html>`;
     const win = window.open('','','width=900,height=600'); win.document.write(content); win.document.close(); win.print();
   };
+
+  // --- RENDERS DE CARGA ---
+
+  if (!tenant) return <div className="min-h-screen flex items-center justify-center text-slate-400 bg-slate-950">Iniciando aplicación...</div>;
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-orange-500 gap-2"><Loader2 className="animate-spin"/> Cargando...</div>;
 
@@ -960,14 +946,17 @@ export default function App() {
     </div>
   );
 
+  // --- VISTA RESET PASSWORD ---
   if (view === 'force-change-password') return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><div className="max-w-md w-full"><div className="text-center mb-8"><div className="w-20 h-20 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce shadow-xl shadow-orange-900/40"><Lock size={36} className="text-white"/></div><h1 className="text-2xl font-bold text-white">Cambio Obligatorio</h1><p className="text-slate-400 mt-2">Por seguridad, actualiza tu contraseña temporal.</p></div><Card className="border-orange-500/30"><form onSubmit={handleChangePassword} className="space-y-4"><input type="password" required className="w-full bg-slate-900/50 text-white rounded-lg p-3 border border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" value={newPasswordForm.new} onChange={e=>setNewPasswordForm({...newPasswordForm,new:e.target.value})} placeholder="Nueva Clave" /><input type="password" required className="w-full bg-slate-900/50 text-white rounded-lg p-3 border border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" value={newPasswordForm.confirm} onChange={e=>setNewPasswordForm({...newPasswordForm,confirm:e.target.value})} placeholder="Confirmar" /><Button type="submit" className="w-full mt-4 py-3">Actualizar Clave</Button></form></Card></div></div>
   );
 
+  // --- COMPONENTE HEADER ---
   const Header = () => (
     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 transition-all"><div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"><div className="flex items-center gap-3"><div className={`p-2 rounded-xl w-10 h-10 flex items-center justify-center overflow-hidden shadow-lg ${appUser.role==='mechanic'?'bg-gradient-to-br from-blue-600 to-blue-700':'bg-gradient-to-br from-orange-600 to-orange-700'}`}>{shopConfig.logoUrl?<img src={shopConfig.logoUrl} className="w-full h-full object-cover"/>:<ItemIcon size={24} className="text-white"/>}</div><div><h1 className="text-lg font-bold text-white leading-tight tracking-tight">{shopConfig.shopName}</h1><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{appUser.role==='client'?'Cliente':(appUser.isAdmin?'Admin':'Mecánico')}</p></div></div><div className="flex items-center gap-4"><div className="hidden sm:block text-right"><p className="text-sm text-white font-medium">{appUser.name}</p><p className="text-xs text-slate-500">{appUser.dni}</p></div><Button variant="ghost" onClick={handleLogout} className="text-slate-400 hover:text-white hover:bg-slate-800"><LogOut size={20}/></Button></div></div></header>
   );
 
+  // --- VISTA LOGIN ---
   if (view === 'login') return (
     <div className={`min-h-screen flex items-center justify-center p-4 transition-all duration-700 ${isStaffLogin?'bg-slate-950':'bg-slate-900'}`}><div className="max-w-md w-full"><div className="text-center mb-8"><div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl transition-all duration-500 ${isStaffLogin?'bg-blue-600 shadow-blue-900/40':'bg-orange-600 shadow-orange-900/40'} overflow-hidden`}>{shopConfig.logoUrl?<img src={shopConfig.logoUrl} className="w-full h-full object-cover"/>:(isStaffLogin?<Shield size={48} className="text-white"/>:<ItemIcon size={48} className="text-white"/>)}</div><h1 className="text-4xl font-bold text-white mb-2 tracking-tight">{shopConfig.shopName}</h1><p className={`text-sm font-medium tracking-wide uppercase ${isStaffLogin?'text-blue-400':'text-slate-400'}`}>{isStaffLogin?'Acceso Administrativo':'Portal de Clientes'}</p></div><Card className={`${isStaffLogin?'border-blue-500/30':'border-slate-700'}`}>
         {isStaffLogin ? (
@@ -997,7 +986,6 @@ export default function App() {
                   className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none" 
                   placeholder={`${activeIndustry.itemLabel} (Opcional)`} 
                 />
-                {/* EMAIL OPCIONAL RECOMENDADO */}
                 <input value={loginForm.email} onChange={e=>setLoginForm({...loginForm,email:e.target.value})} type="email" className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Email (Opcional)" />
                 <Button type="submit" className="w-full py-3.5 mt-2">Registrarme</Button>
             </form>
@@ -1006,6 +994,7 @@ export default function App() {
     </Card></div></div>
   );
 
+  // --- VISTA DASHBOARD CLIENTE ---
   if (view === 'client-dashboard') return (
     <div className="min-h-screen bg-slate-950 pb-20"><Header /><main className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
         <div className="lg:col-span-2"><h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3"><span className="bg-orange-600/20 text-orange-500 p-2 rounded-lg"><Plus size={24}/></span> Reservar Nuevo Turno</h2><Card><div className="mb-8"><h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">1. Selecciona un Día</h3>{renderDateSelector(setSelectedDate, selectedDate)}</div>{selectedDate && <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -1025,7 +1014,6 @@ export default function App() {
                     /* --- NUEVO MODO (HORARIOS EXACTOS) --- */
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                         {generateTimeSlots().map((time) => {
-                            // Verificar si el horario ya está ocupado en la fecha seleccionada
                             const dateStr = formatDateForQuery(selectedDate); 
                             const isTaken = appointments.some(appt => 
                                 appt.dateString === dateStr && 
@@ -1061,10 +1049,8 @@ export default function App() {
             return <Card key={appt.id} className="relative group overflow-hidden"><div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><ItemIcon size={80}/></div><div className="flex flex-col gap-3 relative z-10"><div className="flex justify-between items-center mb-1"><Badge status={appt.status} labels={activeIndustry.statusLabels} /><span className="text-xs font-mono text-slate-500 bg-slate-900 px-2 py-1 rounded">#{appt.orderId}</span></div><div><h3 className="text-lg font-bold text-white leading-tight">{appt.serviceType}</h3><p className="text-slate-400 text-sm mt-1">{appt.bikeModel}</p></div><div className="flex items-center gap-3 mt-2 bg-slate-900/60 p-3 rounded-xl text-sm text-slate-300 border border-slate-800"><Calendar size={16} className="text-orange-500"/><div className="flex flex-col leading-none"><span className="text-xs text-slate-500 font-bold uppercase">Fecha</span><span>{new Date(appt.date).toLocaleDateString()} • {appt.timeBlock==='morning'?'Mañana':(appt.timeBlock==='afternoon'?'Tarde':appt.timeBlock)}</span></div></div>{(appt.status === 'pendiente' && isFuture) && <Button variant="secondary" onClick={()=>openRescheduleModal(appt, 'client')} className="w-full text-xs mt-2 border-slate-700">Reprogramar (48hs)</Button>}</div></Card>
         })}</div>
         
-        {/* Modal Reprogramar */}
         {rescheduleModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
         
-        {/* --- MODAL DE CONFIRMACIÓN (FALTABA ESTO) --- */}
         {confirmModal && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
                 <Card className="w-full max-w-sm border-red-500/30 bg-slate-900 shadow-2xl">
@@ -1100,10 +1086,8 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 pb-20"><Header /><div className="max-w-7xl mx-auto px-4 mt-6 border-b border-slate-800 flex flex-wrap gap-2 overflow-x-auto pb-1"><button onClick={()=>setSubView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${subView==='dashboard'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}>Panel de Turnos</button>{appUser.isAdmin && <><button onClick={()=>setSubView('clients')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='clients'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Users size={16}/> Clientes</button><button onClick={()=>setSubView('stats')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='stats'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><BarChart3 size={16}/> Estadísticas</button><button onClick={()=>setSubView('config')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='config'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Settings size={16}/> Config</button><button onClick={()=>setSubView('mechanics-mgmt')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='mechanics-mgmt'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Shield size={16}/> Staff</button></>}</div>
     <main className="max-w-7xl mx-auto px-4 py-8 relative z-0">
         
-        {/* REUTILIZAMOS MODAL REPROGRAMACION PARA ADMIN */}
         {rescheduleModal && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno (Admin)</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
 
-        {/* MODAL NUEVO TURNO ADMIN (INTELIGENTE) */}
         {showAdminApptModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setShowAdminApptModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
             <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Plus className="text-blue-500"/> Nuevo Turno Manual</h3>
             {adminApptStep === 1 ? (

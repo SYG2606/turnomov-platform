@@ -1,10 +1,16 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
 import './index.css'
-import App from './App.jsx'
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+// 1. IMPORTA TU PROVIDER
+import { TenantProvider } from './saas/TenantProvider'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    {/* 2. ENVUELVE LA APP CON EL PROVIDER */}
+    <TenantProvider>
+      <App />
+    </TenantProvider>
+  </React.StrictMode>,
 )

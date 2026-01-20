@@ -25,6 +25,24 @@ export default function LandingPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+// ... tus otros estados
+  const [currentRubro, setCurrentRubro] = useState(0);
+  
+  const rubrosRotativos = [
+    "Tu Bicicletería", 
+    "Tu Taller", 
+    "Tu Barbería", 
+    "Tu Consultorio", 
+    "Tu Gimnasio"
+  ];
+
+  // Efecto para rotar las palabras cada 2.5 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentRubro((prev) => (prev + 1) % rubrosRotativos.length);
+    }, 2500); // Cambia cada 2.5 segundos
+    return () => clearInterval(interval);
+  }, []);
 
   // --- LÓGICA WHATSAPP (MODIFICAR EL NÚMERO AQUÍ) ---
   const whatsappNumber = "5493855935803"; 
@@ -192,10 +210,15 @@ export default function LandingPage() {
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight mb-6 leading-[1.1]">
-            El Sistema Operativo para <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">Negocios de Servicios</span>
-          </h1>
-          
+  El Sistema Operativo para <br />
+  <span className="relative inline-block">
+    <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-500">
+      {rubrosRotativos[currentRubro]}
+    </span>
+    {/* Subrayado decorativo */}
+    <span className="absolute -bottom-2 left-0 w-full h-2 bg-orange-500/20 rounded-full blur-sm"></span>
+  </span>
+</h1>
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             Dejá de perder tiempo y clientes coordinando por WhatsApp. Centralizá turnos, órdenes de trabajo y clientes en una sola plataforma.
           </p>
