@@ -1,7 +1,7 @@
-// src/firebase/config.js
-import { initializeApp } from 'firebase/app';
+// src/config.js
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5BVLXg7XUYm_B6cyv3hRIoYow1W0wWYg",
@@ -9,11 +9,18 @@ const firebaseConfig = {
   projectId: "turnos-bikes-app-98635",
   storageBucket: "turnos-bikes-app-98635.firebasestorage.app",
   messagingSenderId: "93838557270",
-  appId: "1:93838557270:web:12bf555e73544987c9bbf7",
+  appId: "mi-taller-bici",
 };
 
-// Inicialización
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export default app;
+// Singleton
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// 🔴 FIX CRÍTICO
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
+
+// Auth
+const auth = getAuth(app);
+
+export { db, auth, app };

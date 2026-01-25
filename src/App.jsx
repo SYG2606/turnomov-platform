@@ -1,14 +1,25 @@
 // src/App.jsx
 import React from 'react';
-import { TenantProvider, useTenant } from './saas/TenantProvider';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useTenant } from './saas/TenantProvider';
+import { Loader2 } from 'lucide-react';
 
-// Importamos los módulos (que por ahora son archivos grandes, pero separados)
 import LandingPage from './landing/LandingPage';
 import TurnosApp from './turnos/TurnosApp';
+import HelpPage from './pages/HelpPage';
+import ChatBot from './components/ChatBot';
 
-// Un componente interno para manejar el ruteo básico
-const MainRouter = () => {
-  const { isLanding } = useTenant();
+const HomeRoute = () => {
+  const { isLanding, loading } = useTenant();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-orange-500">
+        <Loader2 className="animate-spin mb-4" size={48} />
+        <p className="text-slate-400 text-sm animate-pulse">Conectando...</p>
+      </div>
+    );
+  }
 
   if (isLanding) {
     return <LandingPage />;
@@ -19,8 +30,13 @@ const MainRouter = () => {
 
 export default function App() {
   return (
-    <TenantProvider>
-       <MainRouter />
-    </TenantProvider>
+    <BrowserRouter>
+      <ChatBot />
+      <Routes>
+        <Route path="/ayuda" element={<HelpPage />} />
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="*" element={<HomeRoute />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

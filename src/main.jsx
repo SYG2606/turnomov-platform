@@ -7,10 +7,10 @@ import './index.css'
 import { TenantProvider } from './saas/TenantProvider'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    {/* 2. ENVUELVE LA APP CON EL PROVIDER */}
+  
+    
     <TenantProvider>
       <App />
     </TenantProvider>
-  </React.StrictMode>,
-)
+  
+);

@@ -1,10 +1,15 @@
 // src/turnos/TurnosApp.jsx
 import React, { useState, useEffect } from 'react';
 import bcrypt from 'bcryptjs'; 
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, runTransaction, where, getDocs, setDoc } from 'firebase/firestore';
-import { useTenant } from '../saas/TenantProvider'; // Asegúrate que la ruta sea correcta
+
+// 1. LIMPIEZA: Quitamos initializeApp de aquí
+import { signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from 'firebase/auth'; // Quitamos getAuth
+import { collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, runTransaction, where, getDocs, setDoc } from 'firebase/firestore'; // Quitamos getFirestore
+
+import { useTenant } from '../saas/TenantProvider'; 
+
+// 2. CONEXIÓN CENTRAL: Esto es lo único que necesitamos
+import { db, auth } from '../firebase/config';
 
 // SECCIÓN DE ICONOS
 import { 
@@ -17,25 +22,9 @@ import {
   Stethoscope, Heart, Pill, Car, Key, PawPrint, Bone 
 } from 'lucide-react';
 
-// --- 1. CONFIGURACIÓN FIREBASE (ESTO SE QUEDA AFUERA) ---
-const firebaseConfig = {
-  apiKey: "AIzaSyD5BVLXg7XUYm_B6cyv3hRIoYow1W0wWYg",
-  authDomain: "turnos-bikes-app-98635.firebaseapp.com",
-  projectId: "turnos-bikes-app-98635",
-  storageBucket: "turnos-bikes-app-98635.firebasestorage.app",
-  messagingSenderId: "93838557270",
-  appId: "mi-taller-bici", 
-};
-
-// Inicialización segura
-let app, auth, db;
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-} catch (e) {
-  console.error("Error inicializando Firebase:", e);
-}
+// --- 3. BORRAR EL BLOQUE DE CONFIGURACIÓN ---
+// (Aquí borré const firebaseConfig = { ... } y el bloque try/catch de inicialización)
+// Ya no son necesarios porque db y auth vienen importados arriba.
 
 // --- 2. CONFIGURACIÓN MAESTRA (ESTO SE QUEDA AFUERA) ---
 const INDUSTRIES = {
@@ -269,18 +258,23 @@ export default function TurnosApp() {
   const [newMechPassword, setNewMechPassword] = useState(GENERIC_PASS);
   const [newMechIsAdmin, setNewMechIsAdmin] = useState(false);
 
-  // --- HOTFIX: Inyectar Tailwind CSS CDN ---
-  useEffect(() => {
-    const scriptId = 'tailwind-cdn-style';
-    if (!document.getElementById(scriptId)) {
-        const script = document.createElement('script');
-        script.id = scriptId;
-        script.src = "https://cdn.tailwindcss.com";
-        script.async = true;
-        document.head.appendChild(script);
-    }
-  }, []);
+ 
+//
+const timeoutsRef = React.useRef([]);
 
+const safeTimeout = (fn, delay) => {
+  const id = setTimeout(fn, delay);
+  timeoutsRef.current.push(id);
+};
+
+useEffect(() => {
+  return () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+}, []);
+
+//
   // Init Auth
   useEffect(() => {
     let isMounted = true;
@@ -343,44 +337,83 @@ export default function TurnosApp() {
     };
   }, [sessionKey]);
 
-  // Data Sync
+
   useEffect(() => {
-    if (!user || !db || !tenant || !appId) return;
+  if (!user || !db || !tenant || !appId) return;
 
-    const basePath = ['artifacts', appId, 'public', 'data'];
+  let isMounted = true;
 
-    const unsub1 = onSnapshot(
-      doc(db, ...basePath, 'config', 'main'),
-      s => s.exists() && setShopConfig(p => ({ ...p, ...s.data() }))
-    );
+  const basePath = ['artifacts', appId, 'public', 'data'];
 
-    const unsub2 = onSnapshot(
-      collection(db, ...basePath, 'turnos'),
-      s =>
-        setAppointments(
-          s.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
-        )
-    );
+  const unsubConfig = onSnapshot(
+    doc(db, ...basePath, 'config', 'main'),
+    snap => {
+      if (!isMounted) return;
+      if (snap.exists()) {
+        setShopConfig(p => ({ ...p, ...snap.data() }));
+      }
+    }
+  );
 
-    const unsub3 = onSnapshot(
-      collection(db, ...basePath, 'mechanics'),
-      s => setMechanics(s.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+  return () => {
+    isMounted = false;
+    unsubConfig();
+  };
+}, [user, tenant, appId, db]);
 
-    const unsub4 = onSnapshot(
-      collection(db, ...basePath, 'clients'),
-      s => setClients(s.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+useEffect(() => {
+  if (!appId) return;
 
-    return () => {
-      unsub1();
-      unsub2();
-      unsub3();
-      unsub4();
-    };
-  }, [user, tenant, appId]);
+  let isMounted = true;
+  const colTurnos = collection(db, 'artifacts', appId, 'public', 'data', 'turnos');
+
+  const unsubTurnos = onSnapshot(colTurnos, snap => {
+  
+    if (!isMounted) return;
+    setAppointments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+});
+
+  return () => {
+    isMounted = false;
+    unsubTurnos();
+  };
+}, [appId]);
+
+useEffect(() => {
+  if (!appId) return;
+
+  let isMounted = true;
+  const colMechanics = collection(db, 'artifacts', appId, 'public', 'data', 'mechanics');
+
+  const unsubMechanics = onSnapshot(colMechanics, snap => {
+    
+    if (!isMounted) return;
+    setMechanics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+
+  return () => {
+    isMounted = false;
+    unsubMechanics();
+  };
+}, [appId]);
+
+useEffect(() => {
+  if (!appId) return;
+
+  let isMounted = true;
+  const colClients = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
+
+  const unsubClients = onSnapshot(colClients, snap => {
+
+    if (!isMounted) return;
+    setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+
+  return () => {
+    isMounted = false;
+    unsubClients();
+  };
+}, [appId]);
 
 
   // --- LOGIC ---
@@ -413,7 +446,9 @@ export default function TurnosApp() {
       const configToSave = newConfig || shopConfig;
       try {
           await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'main'), configToSave, { merge: true });
-          setConfigSuccess(true); setTimeout(() => setConfigSuccess(false), 3000); 
+         setConfigSuccess(true);
+        safeTimeout(() => setConfigSuccess(false), 3000);
+
       } catch (e) { alert("Error al guardar: " + e.message); }
   };
 
@@ -854,7 +889,7 @@ export default function TurnosApp() {
     
     win.document.write(content);
     win.document.close();
-    setTimeout(() => {
+    safeTimeout(() => {
         win.print();
     }, 500);
   };
@@ -925,11 +960,77 @@ export default function TurnosApp() {
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const printList = () => {
-    const list = filteredAppts;
-    const content = `<html><head><title>Reporte</title><style>table{width:100%;border-collapse:collapse;font-family:sans-serif}th,td{border:1px solid #ddd;padding:8px}th{background-color:#f2f2f2}</style></head><body><h1>Reporte Turnos</h1><table><thead><tr><th>Orden</th><th>Fecha</th><th>Cliente</th><th>Bici</th><th>Servicio</th><th>Estado</th></tr></thead><tbody>${list.map(a=>`<tr><td>${a.orderId ? '#'+a.orderId : a.id.slice(0,6)}</td><td>${new Date(a.date).toLocaleDateString()}</td><td>${a.clientName}</td><td>${a.bikeModel}</td><td>${a.serviceType}</td><td>${a.status}</td></tr>`).join('')}</tbody></table></body></html>`;
-    const win = window.open('','','width=900,height=600'); win.document.write(content); win.document.close(); win.print();
-  };
+ const printList = () => {
+  const list = filteredAppts;
+
+  const content = `
+    <html>
+      <head>
+        <title>Reporte</title>
+        <style>
+          table { width:100%; border-collapse:collapse; font-family:sans-serif }
+          th, td { border:1px solid #ddd; padding:8px }
+          th { background-color:#f2f2f2 }
+        </style>
+      </head>
+      <body>
+        <h1>Reporte Turnos</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>Orden</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Bici</th>
+              <th>Servicio</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map(a => `
+              <tr>
+                <td>${a.orderId ? '#' + a.orderId : a.id.slice(0,6)}</td>
+                <td>${new Date(a.date).toLocaleDateString()}</td>
+                <td>${a.clientName}</td>
+                <td>${a.bikeModel}</td>
+                <td>${a.serviceType}</td>
+                <td>${a.status}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const win = window.open('', '', 'width=800,height=900');
+if (!win) {
+  alert('Habilita las ventanas emergentes para imprimir.');
+  return;
+}
+
+try {
+  win.document.open();
+  win.document.write(content);
+  win.document.close();
+} catch (e) {
+  console.warn('No se pudo escribir en la ventana de impresión', e);
+  return;
+}
+
+safeTimeout(() => {
+  if (!win || win.closed) return;
+
+  try {
+    win.focus();
+    win.print();
+  } catch (e) {
+    console.warn('Error al imprimir', e);
+  }
+}, 600);
+ }
+ 
+
 
   // --- RENDERS DE CARGA ---
 
@@ -971,8 +1072,8 @@ export default function TurnosApp() {
             </form>
         ) : loginStep===1 ? (
             <form onSubmit={handleDniSubmit} className="space-y-6">
-                <div className="text-center space-y-2"><h2 className="text-xl font-bold text-white">¡Hola! 👋</h2><p className="text-slate-400 text-sm">Ingresa tu DNI para ver o pedir turnos.</p></div>
-                <input value={loginDni} onChange={e=>setLoginDni(e.target.value)} type="number" required className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-4 text-white text-lg text-center tracking-widest focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all placeholder:text-slate-600" placeholder="ej. 30123456" />
+                <div className="text-center space-y-2"><h2 className="text-xl font-bold text-white">Reserva tú turno👋</h2><p className="text-slate-400 text-sm">Ingresa tu DNI para ver o pedir turnos.</p></div>
+                <input value={loginDni} onChange={e=>setLoginDni(e.target.value)} type="number" required className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-4 text-white text-lg text-center tracking-widest focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all placeholder:text-slate-600" placeholder="ej.: 30123456" />
                 <Button type="submit" className="w-full py-3.5 text-lg shadow-orange-900/30">Continuar <ArrowRight size={20}/></Button>
             </form>
         ) : (
