@@ -337,85 +337,129 @@ useEffect(() => {
     };
   }, [sessionKey]);
 
-
-  useEffect(() => {
-  if (!user || !db || !tenant || !appId) return;
+useEffect(() => {
+  if (!user || !tenant || !appId) return;
 
   let isMounted = true;
-
   const basePath = ['artifacts', appId, 'public', 'data'];
 
-  const unsubConfig = onSnapshot(
+  const unsub = onSnapshot(
     doc(db, ...basePath, 'config', 'main'),
     snap => {
       if (!isMounted) return;
       if (snap.exists()) {
         setShopConfig(p => ({ ...p, ...snap.data() }));
       }
+    },
+    err => {
+      console.warn('Config snapshot:', err.code);
     }
   );
 
   return () => {
     isMounted = false;
-    unsubConfig();
+    unsub();
   };
-}, [user, tenant, appId, db]);
+}, [user, tenant, appId]);
+
 
 useEffect(() => {
-  if (!appId) return;
+  if (!user || !tenant || !appId) return;
 
   let isMounted = true;
-  const colTurnos = collection(db, 'artifacts', appId, 'public', 'data', 'turnos');
 
-  const unsubTurnos = onSnapshot(colTurnos, snap => {
-  
-    if (!isMounted) return;
-    setAppointments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-});
+  const colTurnos = collection(
+    db,
+    'artifacts',
+    appId,
+    'public',
+    'data',
+    'turnos'
+  );
+
+  const unsub = onSnapshot(
+    colTurnos,
+    snap => {
+      if (!isMounted) return;
+      setAppointments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    },
+    err => {
+      if (err.code === 'permission-denied') {
+        console.warn('Sin permisos para turnos');
+      }
+    }
+  );
 
   return () => {
     isMounted = false;
-    unsubTurnos();
+    unsub();
   };
-}, [appId]);
+}, [user, tenant, appId]);
 
 useEffect(() => {
-  if (!appId) return;
+  if (!user || !tenant || !appId) return;
 
   let isMounted = true;
-  const colMechanics = collection(db, 'artifacts', appId, 'public', 'data', 'mechanics');
 
-  const unsubMechanics = onSnapshot(colMechanics, snap => {
-    
-    if (!isMounted) return;
-    setMechanics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  const colMechanics = collection(
+    db,
+    'artifacts',
+    appId,
+    'public',
+    'data',
+    'mechanics'
+  );
+
+  const unsub = onSnapshot(
+    colMechanics,
+    snap => {
+      if (!isMounted) return;
+      setMechanics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    },
+    err => {
+      console.warn('Mechanics snapshot:', err.code);
+    }
+  );
 
   return () => {
     isMounted = false;
-    unsubMechanics();
+    unsub();
   };
-}, [appId]);
+}, [user, tenant, appId]);
 
+
+// --- AGREGAR ESTO JUNTO A LOS OTROS useEffect ---
 useEffect(() => {
-  if (!appId) return;
+  if (!user || !tenant || !appId) return;
 
   let isMounted = true;
-  const colClients = collection(db, 'artifacts', appId, 'public', 'data', 'clients');
 
-  const unsubClients = onSnapshot(colClients, snap => {
+  const colClients = collection(
+    db,
+    'artifacts',
+    appId,
+    'public',
+    'data',
+    'clients'
+  );
 
-    if (!isMounted) return;
-    setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  const unsub = onSnapshot(
+    colClients,
+    snap => {
+      if (!isMounted) return;
+      // Esto llenará el estado que usas en el subView === 'clients'
+      setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    },
+    err => {
+      console.warn('Error cargando clientes:', err.code);
+    }
+  );
 
   return () => {
     isMounted = false;
-    unsubClients();
+    unsub();
   };
-}, [appId]);
-
-
+}, [user, tenant, appId]);
   // --- LOGIC ---
   const filteredAppts = appointments.filter(a => {
       const term = searchTerm.toLowerCase();
