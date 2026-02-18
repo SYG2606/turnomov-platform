@@ -224,6 +224,7 @@ export default function TurnosApp() { 
   const [view, setView] = useState('login'); 
   const [subView, setSubView] = useState('dashboard'); 
   const [dashboardMode, setDashboardMode] = useState('list');
+  const [clientsViewMode, setClientsViewMode] = useState('cards');
   const [isStaffLogin, setIsStaffLogin] = useState(false);
   const [loginStep, setLoginStep] = useState(1);
   const [loginDni, setLoginDni] = useState('');
@@ -475,6 +476,8 @@ useEffect(() => {
     unsub();
   };
 }, [user, tenant, appId]);
+
+
 const filteredAppts = appointments
   .filter(a => {
     const term = searchTerm.toLowerCase();
@@ -659,48 +662,73 @@ const filteredAppts = appointments
     if (!adminFormData.date || !adminFormData.phone || !adminFormData.bikeModel) return alert("Faltan datos");
     
     setIsSubmitting(true);
-    try {
-        let finalClientId = 'admin-created';
-        if (isNewClient) {
-            const clientDoc = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'clients'), { 
-                dni: adminDniSearch, 
-                name: adminFormData.name, 
-                phone: adminFormData.phone, 
-                bikeModel: adminFormData.bikeModel,
-                createdAt: new Date().toISOString() 
-            });
-            finalClientId = clientDoc.id; 
-        } else {
-            const existing = clients.find(c => c.dni === adminDniSearch);
-            if (existing) finalClientId = existing.id;
-        }
 
-        const d = new Date(adminFormData.date);
-        const orderNum = await generateOrderNumber();
-        
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'turnos'), {
-            orderId: orderNum, 
-            clientId: finalClientId, 
-            clientName: adminFormData.name, 
-            clientDni: adminDniSearch,
-            clientPhone: adminFormData.phone, 
-            bikeModel: adminFormData.bikeModel, 
-            serviceType: adminFormData.serviceType,
-            date: d.toISOString(), 
-            dateString: formatDateForQuery(d), 
-            notes: adminFormData.notes || 'Agendado por Staff', 
-            status: 'pendiente', 
-            createdBy: 'mechanic', 
-            createdAt: new Date().toISOString()
-        });
-        
-        alert(`Turno #${orderNum} creado.`); 
-        setShowAdminApptModal(false); 
-        setAdminApptStep(1);
-        setAdminDniSearch('');
-        setAdminFormData({ name: '', bikeModel: '', phone: '', date: '', serviceType: availableServices[0], notes: '' });
-    } catch (e) { alert("Error al crear: " + e.message); }
-    finally { setIsSubmitting(false); }
+try {
+
+  let finalClientId = 'admin-created';
+
+  if (isNewClient) {
+
+    const normalizedName = capitalizeName(adminFormData.name);
+
+    const clientDoc = await addDoc(
+      collection(db, 'artifacts', appId, 'public', 'data', 'clients'),
+      {
+        dni: adminDniSearch.trim(),
+        name: normalizedName,
+        phone: adminFormData.phone.trim(),
+        bikeModel: capitalizeName(adminFormData.bikeModel),
+        createdAt: new Date().toISOString()
+      }
+    );
+
+    finalClientId = clientDoc.id;
+
+  } else {
+
+    const existing = clients.find(c => c.dni === adminDniSearch);
+
+    if (existing) finalClientId = existing.id;
+  }
+
+  const d = new Date(adminFormData.date);
+  const orderNum = await generateOrderNumber();
+
+  await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'turnos'), {
+    orderId: orderNum,
+    clientId: finalClientId,
+    clientName: adminFormData.name,
+    clientDni: adminDniSearch,
+    clientPhone: adminFormData.phone,
+    bikeModel: adminFormData.bikeModel,
+    serviceType: adminFormData.serviceType,
+    date: d.toISOString(),
+    dateString: formatDateForQuery(d),
+    notes: adminFormData.notes || 'Agendado por Staff',
+    status: 'pendiente',
+    createdBy: 'mechanic',
+    createdAt: new Date().toISOString()
+  });
+
+  alert(`Turno #${orderNum} creado.`);
+  setShowAdminApptModal(false);
+  setAdminApptStep(1);
+  setAdminDniSearch('');
+  setAdminFormData({
+    name: '',
+    bikeModel: '',
+    phone: '',
+    date: '',
+    serviceType: availableServices[0],
+    notes: ''
+  });
+
+} catch (e) {
+  alert("Error al crear: " + e.message);
+} finally {
+  setIsSubmitting(false);
+}
+
   };
 
   const handleStaffLogin = async (e) => {
@@ -1264,20 +1292,84 @@ safeTimeout(() => {
                 <Button type="submit" className="w-full py-3.5 text-lg shadow-orange-900/30">Continuar <ArrowRight size={20}/></Button>
             </form>
         ) : (
-            <form onSubmit={handleRegisterSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-8 duration-500">
-                <div className="text-center mb-2"><h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">Crea tu Perfil <ItemIcon size={24} /></h2><p className="text-slate-400 text-xs">Solo te pediremos esto una vez.</p></div>
-                <input value={loginForm.name} onChange={e=>setLoginForm({...loginForm,name:e.target.value})} required className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none transition-all" placeholder="Tu Nombre Completo" />
-                <input value={loginForm.phone} onChange={e=>setLoginForm({...loginForm,phone:e.target.value})} className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Celular / WhatsApp" />
-                <input 
-                  value={loginForm.bikeModel} 
-                  onChange={e=>setLoginForm({...loginForm,bikeModel:e.target.value})} 
-                  className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none" 
-                  placeholder={`${activeIndustry.itemLabel} (Opcional)`} 
-                />
-                <input value={loginForm.email} onChange={e=>setLoginForm({...loginForm,email:e.target.value})} type="email" className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Email (Opcional)" />
-                <Button type="submit" className="w-full py-3.5 mt-2">Registrarme</Button>
-            </form>
-        )}
+  <form onSubmit={handleRegisterSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-8 duration-500">
+
+    <div className="text-center mb-2">
+      <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+        Crea tu Perfil <ItemIcon size={24} />
+      </h2>
+      <p className="text-slate-400 text-xs">Solo te pediremos esto una vez.</p>
+    </div>
+
+    <input
+      value={loginForm.name}
+      onChange={e=>setLoginForm({...loginForm,name:e.target.value})}
+      required
+      className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none"
+      placeholder="Tu Nombre Completo"
+    />
+
+    <input
+      value={loginForm.phone}
+      onChange={e=>setLoginForm({...loginForm,phone:e.target.value})}
+      className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none"
+      placeholder="Celular / WhatsApp"
+    />
+
+    <input
+      value={loginForm.bikeModel}
+      onChange={e=>setLoginForm({...loginForm,bikeModel:e.target.value})}
+      className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none"
+      placeholder={`${activeIndustry.itemLabel} (Opcional)`}
+    />
+
+    <input
+      value={loginForm.email}
+      onChange={e=>setLoginForm({...loginForm,email:e.target.value})}
+      type="email"
+      className="w-full bg-slate-900/50 border-slate-700 border rounded-xl p-3.5 text-white focus:ring-2 focus:ring-orange-500 outline-none"
+      placeholder="Email (Opcional)"
+    />
+
+    <Button type="submit" className="w-full py-3.5 mt-2">
+      Registrarme
+    </Button>
+
+    {/* CONTROLES DE SALIDA */}
+
+    <div className="flex justify-between pt-2 text-xs">
+
+      {/* volver a DNI */}
+      <button
+        type="button"
+        onClick={()=>{
+          setLoginStep(1);
+          setLoginForm({name:'',phone:'',bikeModel:'',email:''});
+        }}
+        className="text-slate-500 hover:text-white"
+      >
+        ← Cambiar DNI
+      </button>
+
+      {/* salir */}
+      <button
+        type="button"
+        onClick={()=>{
+          setLoginStep(1);
+          setLoginDni('');
+          setLoginForm({name:'',phone:'',bikeModel:'',email:''});
+          setView('login');
+        }}
+        className="text-red-400 hover:text-red-300"
+      >
+        Salir
+      </button>
+
+    </div>
+
+  </form>
+)
+}
         <div className="mt-8 pt-6 border-t border-slate-700/50 flex justify-center"><button onClick={()=>{setIsStaffLogin(!isStaffLogin);setLoginStep(1);setLoginDni('');setLoginPassword('');}} className="text-sm flex items-center gap-2 text-slate-500 hover:text-white transition-colors py-2 px-4 rounded-lg hover:bg-slate-800">{isStaffLogin?<>Volver al Acceso de Clientes</>:<><Lock size={14}/> Soy Personal del {activeIndustry.placeLabel}</>}</button></div>
     </Card></div></div>
   );
@@ -1399,7 +1491,7 @@ safeTimeout(() => {
             
             <div className="mb-8 p-4 bg-slate-900/50 rounded-2xl border border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-4 shadow-inner">
                 <div className="md:col-span-4 relative"><Search className="absolute left-4 top-3.5 text-slate-500" size={20}/><input placeholder={`Buscar ID, Cliente, ${activeIndustry.itemLabel}...`} value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full bg-slate-950 border-slate-800 border rounded-xl pl-12 p-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"/></div>
-                <div className="md:col-span-3"><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 cursor-pointer"><option value="all">Todos los Estados</option><option value="pendiente">Pendientes</option><option value="recibido">En Espera ({activeIndustry.placeLabel})</option><option value="en-proceso">En Proceso</option><option value="listo">Terminados</option></select></div>
+                <div className="md:col-span-3"><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 cursor-pointer"><option value="all">Todos los Estados</option><option value="pendiente">Pendientes</option><option value="recibido">En Espera ({activeIndustry.placeLabel})</option><option value="en-proceso">En Proceso</option><option value="listo">Entregado</option></select></div>
                 <div className="md:col-span-3 flex gap-2">
                     <button onClick={()=>setDashboardMode('list')} className={`flex-1 flex items-center justify-center rounded-xl transition ${dashboardMode==='list'?'bg-blue-600 text-white':'bg-slate-800 text-slate-400'}`}><List size={20}/></button>
                     <button onClick={()=>setDashboardMode('board')} className={`flex-1 flex items-center justify-center rounded-xl transition ${dashboardMode==='board'?'bg-blue-600 text-white':'bg-slate-800 text-slate-400'}`}><Layout size={20}/></button>
@@ -1682,46 +1774,158 @@ title="Eliminar"
             )}
         </>}
 
-        {subView === 'clients' && appUser.isAdmin && <div className="space-y-6">
-            {editingClient && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-md relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setEditingClient(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-2xl font-bold text-white mb-6">Editar Cliente</h3><form onSubmit={handleUpdateClient} className="space-y-4"><div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nombre</label><input value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})} className="w-full bg-slate-950 text-white rounded-xl p-3 border border-slate-800 focus:border-blue-500 outline-none transition"/></div><div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Teléfono</label><input value={editingClient.phone} onChange={e=>setEditingClient({...editingClient,phone:e.target.value})} className="w-full bg-slate-950 text-white rounded-xl p-3 border border-slate-800 focus:border-blue-500 outline-none transition"/></div><div><label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Default {activeIndustry.itemLabel}</label><input value={editingClient.bikeModel} onChange={e=>setEditingClient({...editingClient,bikeModel:e.target.value})} className="w-full bg-slate-950 text-white rounded-xl p-3 border border-slate-800 focus:border-blue-500 outline-none transition"/></div><Button type="submit" className="w-full py-3 mt-2">Guardar Cambios</Button></form></Card></div>}
-            
-            {clientHistoryModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-4xl relative bg-slate-900 border-slate-700 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col"><button onClick={()=>setClientHistoryModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
-                <div className="mb-6 flex items-center gap-4">
-                    <div className="bg-blue-600/20 p-3 rounded-full"><History size={24} className="text-blue-400"/></div>
-                    <div><h3 className="text-2xl font-bold text-white">{clientHistoryModal.name}</h3><p className="text-sm text-slate-400">Historial de Servicios</p></div>
-                </div>
-                <div className="overflow-y-auto flex-1">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-800 text-xs text-slate-400 uppercase tracking-wider sticky top-0"><tr><th className="p-3">Fecha</th><th className="p-3">Orden</th><th className="p-3">Servicio</th><th className="p-3">{activeIndustry.itemLabel}</th><th className="p-3">Staff</th></tr></thead>
-                        <tbody className="divide-y divide-slate-800 text-sm text-slate-300">
-                            {appointments.filter(a => (a.clientId === clientHistoryModal.id || a.clientDni === clientHistoryModal.dni)).sort((a,b)=>new Date(b.date)-new Date(a.date)).map(hist => (
-                                <tr key={hist.id} className="hover:bg-slate-800/50">
-                                    <td className="p-3 font-mono text-xs">{new Date(hist.date).toLocaleDateString()}</td>
-                                    <td className="p-3 font-bold">#{hist.orderId}</td>
-                                    <td className="p-3">{hist.serviceType}</td>
-                                    <td className="p-3 text-slate-400">{hist.bikeModel}</td>
-                                    <td className="p-3 text-slate-500 text-xs">{hist.mechanicName || '-'}</td>
-                                </tr>
-                            ))}
-                            {appointments.filter(a => (a.clientId === clientHistoryModal.id || a.clientDni === clientHistoryModal.dni)).length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-500">Sin historial registrado.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-            </Card></div>}
+       
+      {subView === 'clients' && appUser.isAdmin && (
+  <div className="space-y-6">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{clients.map(client=>{
-                const clientServices=appointments.filter(a=>(a.clientId===client.id || a.clientDni===client.dni) && a.status==='listo');
-                const lastServiceDate=clientServices.length>0?new Date(Math.max(...clientServices.map(a=>new Date(a.date)))):null;
-                return <Card key={client.id} className="relative group hover:border-slate-600 transition"><div className="flex items-start justify-between mb-4"><div className="flex items-center gap-3"><div className="bg-slate-800 p-3 rounded-full border border-slate-700 shadow-inner"><User size={24} className="text-slate-300"/></div><div><h3 className="font-bold text-white text-lg">{client.name}</h3><p className="text-xs text-slate-500 font-mono bg-slate-900 px-1.5 py-0.5 rounded w-fit">DNI: {client.dni}</p></div></div><button onClick={()=>setEditingClient(client)} className="text-slate-600 hover:text-blue-400 p-2 rounded-lg hover:bg-blue-500/10 transition"><Edit size={18}/></button></div>
-                <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-2 gap-3 text-xs">
-                    <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center"><div className="text-slate-500 mb-1 flex items-center justify-center gap-1 font-bold uppercase tracking-wider"><Wrench size={12}/> Servicios</div><div className="text-xl font-bold text-blue-400">{clientServices.length}</div></div>
-                    <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-center"><div className="text-slate-500 mb-1 flex items-center justify-center gap-1 font-bold uppercase tracking-wider"><History size={12}/> Último</div><div className="text-sm font-medium text-slate-300">{lastServiceDate ? lastServiceDate.toLocaleDateString() : '-'}</div></div>
-                </div>
-                <div className="mt-4 flex gap-2">
-                    <button onClick={()=>sendWhatsApp(client.phone,client.name,client.bikeModel||'bici','consulta')} className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-green-600 hover:text-white text-slate-300 py-3 rounded-xl text-sm font-medium transition-all border border-slate-700 hover:border-green-500 shadow-sm"><MessageCircle size={16}/></button>
-                    <button onClick={()=>setClientHistoryModal(client)} className="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 py-3 rounded-xl text-sm font-medium transition-all border border-slate-700 hover:border-blue-500 shadow-sm"><FileClock size={16}/> Historial</button>
-                </div></Card>;
-            })}</div></div>}
+    {/* ===== MODAL EDITAR ===== */}
+    {editingClient && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+        <Card className="w-full max-w-md relative bg-slate-900 border-slate-700">
+          <button onClick={()=>setEditingClient(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
+
+          <h3 className="text-xl font-bold text-white mb-4">Editar Cliente</h3>
+
+          <form onSubmit={handleUpdateClient} className="space-y-3">
+            <input value={editingClient.name} onChange={e=>setEditingClient({...editingClient,name:e.target.value})} className="w-full bg-slate-950 p-3 rounded"/>
+            <input value={editingClient.phone} onChange={e=>setEditingClient({...editingClient,phone:e.target.value})} className="w-full bg-slate-950 p-3 rounded"/>
+            <input value={editingClient.bikeModel} onChange={e=>setEditingClient({...editingClient,bikeModel:e.target.value})} className="w-full bg-slate-950 p-3 rounded"/>
+            <Button type="submit" className="w-full">Guardar</Button>
+          </form>
+        </Card>
+      </div>
+    )}
+
+    {/* ===== MODAL HISTORIAL ===== */}
+    {clientHistoryModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+        <Card className="w-full max-w-4xl relative bg-slate-900 border-slate-700 max-h-[80vh] overflow-hidden flex flex-col">
+
+          <button onClick={()=>setClientHistoryModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
+
+          <h3 className="text-xl font-bold text-white mb-4">{clientHistoryModal.name}</h3>
+
+          <div className="overflow-y-auto flex-1">
+            <table className="w-full text-sm text-slate-200">
+              <thead className="bg-slate-800 sticky top-0">
+                <tr>
+                  <th className="p-2">Fecha</th>
+                  <th>Orden</th>
+                  <th>Servicio</th>
+                  <th>{activeIndustry.itemLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointments
+                  .filter(a=>a.clientId===clientHistoryModal.id || a.clientDni===clientHistoryModal.dni)
+                  .sort((a,b)=>new Date(b.date)-new Date(a.date))
+                  .map(h=>(
+                    <tr key={h.id} className="border-b border-slate-800">
+                      <td className="p-2">{new Date(h.date).toLocaleDateString()}</td>
+                      <td>#{h.orderId}</td>
+                      <td>{h.serviceType}</td>
+                      <td>{h.bikeModel}</td>
+                    </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+        </Card>
+      </div>
+    )}
+
+    {/* ===== TOGGLE ===== */}
+    <div className="flex justify-end gap-2">
+      <button onClick={()=>setClientsViewMode('cards')} className={`px-3 py-1 rounded ${clientsViewMode==='cards'?'bg-blue-600 text-white':'bg-slate-800 text-slate-300'}`}>Cards</button>
+      <button onClick={()=>setClientsViewMode('list')} className={`px-3 py-1 rounded ${clientsViewMode==='list'?'bg-blue-600 text-white':'bg-slate-800 text-slate-300'}`}>Lista</button>
+    </div>
+
+    {/* ===== CARDS / TABLA ===== */}
+    {clientsViewMode === 'cards' ? (
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        {clients.map(client=>{
+          const services=appointments.filter(a=>(a.clientId===client.id||a.clientDni===client.dni)&&a.status==='retirado');
+          const last=services.length?new Date(Math.max(...services.map(s=>new Date(s.date)))):null;
+
+          return (
+            <Card key={client.id} className="bg-slate-900 border-slate-700 p-4">
+
+              <h3 className="text-white font-bold text-lg">{client.name}</h3>
+              <p className="text-xs text-slate-400 font-mono">DNI {client.dni}</p>
+
+              <div className="grid grid-cols-2 gap-3 mt-3 text-center">
+                <div className="bg-slate-800 p-2 rounded">
+                  <div className="text-xs text-slate-400">Servicios</div>
+                  <div className="text-xl text-blue-400">{services.length}</div>
+                </div>
+
+                <div className="bg-slate-800 p-2 rounded">
+                  <div className="text-xs text-slate-400">Último</div>
+                  <div className="text-sm text-slate-200">{last?last.toLocaleDateString():'-'}</div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <Button variant="ghost" onClick={()=>sendWhatsApp(client.phone,client.name,client.bikeModel||'bici')}>
+                  <MessageCircle size={14}/>
+                </Button>
+
+                <Button variant="ghost" onClick={()=>setClientHistoryModal(client)}>
+                  <FileClock size={14}/>
+                </Button>
+
+                <Button variant="ghost" onClick={()=>setEditingClient(client)}>
+                  <Edit size={14}/>
+                </Button>
+              </div>
+
+            </Card>
+          );
+        })}
+
+      </div>
+
+    ) : (
+
+      <table className="w-full text-sm text-slate-200">
+        <thead className="bg-slate-800">
+          <tr>
+            <th className="p-2">Cliente</th>
+            <th>DNI</th>
+            <th>Servicios</th>
+            <th>Último</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {clients.map(client=>{
+            const services=appointments.filter(a=>(a.clientId===client.id||a.clientDni===client.dni)&&a.status==='retirado');
+            const last=services.length?new Date(Math.max(...services.map(s=>new Date(s.date)))):null;
+
+            return (
+              <tr key={client.id} className="border-b border-slate-800">
+                <td className="p-2">{client.name}</td>
+                <td>{client.dni}</td>
+                <td className="text-center">{services.length}</td>
+                <td>{last?last.toLocaleDateString():'-'}</td>
+                <td>
+                  <Button variant="ghost" onClick={()=>setClientHistoryModal(client)}><FileClock size={14}/></Button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+    )}
+
+  </div>
+)}
+
 
         {subView === 'mechanics-mgmt' && appUser.isAdmin && <div className="max-w-3xl mx-auto"><Card className="mb-8 border-blue-500/30 shadow-blue-900/10"><div className="flex items-center gap-3 mb-6"><div className="bg-blue-500/20 p-3 rounded-full"><Shield size={24} className="text-blue-400"/></div><h3 className="text-2xl font-bold text-white">Gestión de {activeIndustry.staffLabel}s</h3></div><form onSubmit={addMechanic} className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 mb-4"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre</label><input required value={newMechName} onChange={e=>setNewMechName(e.target.value)} className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" placeholder="Nombre"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">DNI (Usuario)</label><input required value={newMechDni} onChange={e=>setNewMechDni(e.target.value)} type="number" className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" placeholder="DNI"/></div><div className="space-y-1 relative"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contraseña</label><input required value={newMechPassword} onChange={e=>setNewMechPassword(e.target.value)} type="text" className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" /><div className="absolute top-8 right-3 text-xs text-slate-600 select-none">Default</div></div><div className="md:col-span-3 flex items-center justify-between pt-2"><div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"><input type="checkbox" checked={newMechIsAdmin} onChange={e=>setNewMechIsAdmin(e.target.checked)} className="rounded border-slate-700 bg-slate-800 text-blue-600 w-4 h-4"/><label className="text-sm text-slate-300 font-medium">¿Permisos de Admin?</label></div><Button type="submit" variant="admin" className="px-8"><Plus size={18}/> Crear Usuario</Button></div></form></Card><div className="space-y-3">{mechanics.map(m=><div key={m.id} className="flex justify-between items-center bg-slate-800/80 backdrop-blur-sm p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition"><div className="flex items-center gap-4"><div className={`p-3 rounded-full ${m.isAdmin?'bg-blue-500/20 text-blue-400':'bg-slate-700 text-slate-400'}`}>{m.isAdmin?<Shield size={20}/>:<Wrench size={20}/>}</div><div><p className="text-white font-bold flex items-center gap-2 text-lg">{m.name}{m.isAdmin && <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 uppercase tracking-wider font-bold">Admin</span>}</p><p className="text-sm text-slate-500 font-mono">DNI: {m.dni}</p></div></div><div className="flex gap-2"><Button variant="secondary" className="p-2.5 h-auto rounded-lg bg-slate-900 border-slate-800 hover:bg-slate-800" onClick={()=>triggerResetPassword(m.id, m.name)} title={`Resetear a ${GENERIC_PASS}`}><RotateCcw size={16}/></Button><Button variant="danger" className="p-2.5 h-auto rounded-lg" onClick={()=>triggerRemoveMechanic(m.id, m.name)}><Trash2 size={16}/></Button></div></div>)}</div></div>}
         
