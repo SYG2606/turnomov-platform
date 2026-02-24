@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import bcrypt from 'bcryptjs'; 
 
+
 // 1. LIMPIEZA: Quitamos initializeApp de aquí
 import { signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from 'firebase/auth'; // Quitamos getAuth
 import { collection, addDoc, query, onSnapshot, doc, updateDoc, deleteDoc, runTransaction, where, getDocs, setDoc } from 'firebase/firestore'; // Quitamos getFirestore
@@ -166,7 +167,17 @@ const capitalizeName = (str = '') =>
     .filter(Boolean)
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
+//--------------------------------------------------
+const getWeekDays = () => {
+  const start = new Date();
+  start.setDate(start.getDate() - start.getDay() + 1); // lunes
 
+  return Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+};
 
 // --- 3. APP PRINCIPAL (EL COMPONENTE) ---
 // Cambiamos el nombre a TurnosApp para no confundir con el wrapper
@@ -930,60 +941,63 @@ finalizeLogin({
     const win = window.open('','','width=800,height=900');
     
     const styles = `
+* {
+  box-sizing: border-box;
+}
+
 body {
   font-family: monospace;
-  width: 80mm;
-  margin: 0 auto;
-  padding: 4px;
+  width: 76mm;
+  margin: 0;
+  padding: 4mm;
 }
-  
 
 .container {
+  width: 100%;
   border: 1px solid #000;
-  padding: 6px;
-  margin-bottom: 10px;
+  padding: 4px;
+  margin-bottom: 8px;
 }
 
 .header {
   text-align: center;
   border-bottom: 1px solid #000;
-  padding-bottom: 6px;
-  margin-bottom: 10px;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   font-size: 11px;
 }
 
 .title {
   font-weight: bold;
   font-size: 12px;
-  margin: 8px 0 4px 0;
+  margin: 6px 0 3px 0;
   border-bottom: 1px dashed #999;
 }
 
 .big-id {
   text-align: center;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
-  margin: 8px 0;
+  margin: 6px 0;
   border: 2px solid #000;
-  padding: 4px;
+  padding: 3px;
   letter-spacing: 2px;
 }
 
 .cut-line {
   border-top: 2px dashed #000;
-  margin: 20px 0;
+  margin: 15px 0;
   position: relative;
   text-align: center;
   font-size: 10px;
   page-break-after: always;
 }
-
 
 .cut-line:after {
   content: '✂ CORTAR AQUÍ - COPIA CLIENTE';
@@ -999,22 +1013,23 @@ body {
 .footer {
   text-align: center;
   font-size: 10px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .disclaimer {
   font-size: 10px;
   line-height: 1.3;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 @media print {
   body {
-    width: 80mm;
+    width: 76mm;
     margin: 0;
   }
 }
-  @page {
+
+@page {
   size: 80mm auto;
   margin: 0;
 }
@@ -1112,61 +1127,102 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=ORD
   };
 
   const renderDateSelector = (onSelect, currentSelected) => {
-    const dates = []; let d = new Date();
-    // --- LÓGICA DE IMPLEMENTACIÓN ---
-  // Si hay una fecha de inicio configurada y es futura, empezamos desde ahí
-  if (shopConfig.implementationDate) {
-    const implDate = new Date(shopConfig.implementationDate + "T00:00:00"); // Forzamos hora local 00:00
-    if (implDate > d) {
-      d = implDate;
-    } else {
-      d.setDate(d.getDate() + 1); // Si ya pasó, empezamos desde mañana
-    }
-  } else {
-    d.setDate(d.getDate() + 1); // Fallback: mañana
-  }
-  // --------------------------------
-    let loops = 0;
-    while (dates.length < 6 && loops < 60) { 
-        const dateStr = formatDateForQuery(d);
-        const isBlocked = shopConfig.blockedDates && shopConfig.blockedDates.includes(dateStr);
-        if(shopConfig.workDays.includes(d.getDay())) {
-             dates.push({ date: new Date(d), isBlocked, dateStr }); 
-        }
-        d.setDate(d.getDate()+1); loops++;
-    }
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        {dates.map((item,i) => {
-            const { date: d, isBlocked, dateStr: ds } = item;
-            const count = appointments.filter(a=>a.dateString===ds && a.status!=='cancelado').length;
-            const full = count >= shopConfig.maxPerDay;
-            const sel = currentSelected && formatDateForQuery(currentSelected) === ds;
-            
-            let statusText = `${shopConfig.maxPerDay-count} libres`;
-            let statusColor = 'text-emerald-400';
-            if (isBlocked) { statusText = 'Cerrado'; statusColor = 'text-red-400'; }
-            else if (full) { statusText = 'Agotado'; statusColor = 'text-red-400'; }
+  const dates = [];
+  let d = new Date();
 
-            return (
-                <button key={i} onClick={()=>!full && !isBlocked && onSelect(d)} disabled={full || isBlocked} 
-                    className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden
-                        ${(full || isBlocked) ? 'bg-slate-800/50 border-slate-700 opacity-60 cursor-not-allowed' : sel ? 'bg-orange-600 border-orange-500 ring-2 ring-orange-500/30 shadow-lg' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}
-                    `}
-                >
-                    {isBlocked && <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center -rotate-12 pointer-events-none"><span className="text-red-500/50 font-bold border-2 border-red-500/50 px-2 py-1 rounded text-xs uppercase">No Laborable</span></div>}
-                    <div className="flex justify-between items-start mb-1">
-                        <span className={`text-sm font-bold ${(full||isBlocked)?'text-slate-500':'text-white'}`}>{formatDisplayDate(d).dayName}</span>
-                        {(full||isBlocked) ? <XCircle size={14} className="text-red-500"/> : <CheckCircle size={14} className="text-emerald-500"/>}
-                    </div>
-                    <div className="text-xs text-slate-300">{formatDisplayDate(d).date}</div>
-                    <div className={`mt-2 text-xs font-semibold ${statusColor}`}>{statusText}</div>
-                </button>
-            )
-        })}
-      </div>
-    );
-  };
+  // ===== FECHA DE ARRANQUE =====
+  if (shopConfig.implementationDate) {
+    const implDate = new Date(shopConfig.implementationDate + "T00:00:00");
+    if (implDate > d) d = implDate;
+    else d.setDate(d.getDate() + 1);
+  } else {
+    d.setDate(d.getDate() + 1);
+  }
+
+  // ===== BUSCAR PRÓXIMAS FECHAS CON CUPO REAL =====
+  let loops = 0;
+
+  while (dates.length < 6 && loops < 180) {
+    const dateStr = formatDateForQuery(d);
+
+    const isBlocked =
+      shopConfig.blockedDates &&
+      shopConfig.blockedDates.includes(dateStr);
+
+    const count = appointments.filter(
+      a => a.dateString === dateStr && a.status !== 'cancelado'
+    ).length;
+
+    const full = count >= shopConfig.maxPerDay;
+
+    if (
+      shopConfig.workDays.includes(d.getDay()) &&
+      !isBlocked &&
+      !full
+    ) {
+      dates.push({
+        date: new Date(d),
+        isBlocked,
+        dateStr
+      });
+    }
+
+    d.setDate(d.getDate() + 1);
+    loops++;
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+      {dates.map((item, i) => {
+        const { date, dateStr } = item;
+
+        const count = appointments.filter(
+          a => a.dateString === dateStr && a.status !== 'cancelado'
+        ).length;
+
+        const full = count >= shopConfig.maxPerDay;
+        const sel =
+          currentSelected &&
+          formatDateForQuery(currentSelected) === dateStr;
+
+        const libres = shopConfig.maxPerDay - count;
+
+        return (
+          <button
+            key={i}
+            onClick={() => !full && onSelect(date)}
+            disabled={full}
+            className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden
+              ${full
+                ? 'bg-slate-800/50 border-slate-700 opacity-60 cursor-not-allowed'
+                : sel
+                ? 'bg-orange-600 border-orange-500 ring-2 ring-orange-500/30 shadow-lg'
+                : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}
+            `}
+          >
+            <div className="flex justify-between items-start mb-1">
+              <span className={`text-sm font-bold ${full ? 'text-slate-500' : 'text-white'}`}>
+                {formatDisplayDate(date).dayName}
+              </span>
+
+              {full
+                ? <XCircle size={14} className="text-red-500"/>
+                : <CheckCircle size={14} className="text-emerald-500"/>}
+            </div>
+
+            <div className="text-xs text-slate-300">
+              {formatDisplayDate(date).date}
+            </div>
+
+            <div className={`mt-2 text-xs font-semibold ${full ? 'text-red-400' : 'text-emerald-400'}`}>
+              {full ? 'Agotado' : `${libres} libres`}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
   const sendWhatsApp = (phone, name, bike, status) => {
     if (!phone) { alert("Sin teléfono."); return; }
@@ -1505,7 +1561,16 @@ safeTimeout(() => {
                     >
                     <FileText size={20}/>
                     </button>
-
+                            <button
+                              onClick={()=>setDashboardMode('week')}
+                              className={`flex-1 flex items-center justify-center rounded-xl transition ${
+                              dashboardMode==='week'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-800 text-slate-400'
+                            }`}
+                                >
+                             <Calendar size={20}/>
+                            </button>
                 </div>
                 <div className="md:col-span-2"><Button variant="secondary" onClick={printList} className="w-full h-full flex gap-2 items-center justify-center bg-slate-800 border-slate-700 hover:bg-slate-700"><Printer size={18}/> Reporte</Button></div>
             </div>
@@ -1661,12 +1726,74 @@ title="Eliminar"
 </div>
 </Card>
 ))}
+</div>
+) : dashboardMode === 'week' ? (
 
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
 
-      
+{getWeekDays().map(day => {
 
-  </div>
+  const dayStr = formatDateForQuery(day);
 
+  const dayAppts = filteredAppts
+    .filter(a => a.dateString === dayStr)
+    .sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  return (
+    <div key={dayStr} className="bg-slate-900 rounded-xl border border-slate-800 p-3">
+
+      <div className="text-center mb-2">
+        <div className="text-sm text-white font-bold">
+          {formatDisplayDate(day).dayName}
+        </div>
+        <div className="text-xs text-slate-400">
+          {formatDisplayDate(day).date}
+        </div>
+
+        <div className="text-xs mt-1 text-blue-400">
+          {dayAppts.length} turnos
+        </div>
+      </div>
+
+      <div className="space-y-2">
+
+        {dayAppts.length === 0 && (
+          <div className="text-xs text-slate-600 text-center py-4">
+            Sin ingresos
+          </div>
+        )}
+
+        {dayAppts.map(a => (
+          <div
+            key={a.id}
+            className="bg-slate-800 p-2 rounded border border-slate-700 text-xs"
+          >
+
+            <div className="flex justify-between">
+              <span className="text-white font-bold">{a.bikeModel}</span>
+              <Badge status={a.status} labels={activeIndustry.statusLabels}/>
+            </div>
+
+            <div className="text-slate-400">{a.clientName}</div>
+            <div className="text-blue-400">{a.serviceType}</div>
+
+            {a.mechanicName && (
+              <div className="text-[10px] text-emerald-400 mt-1">
+                🔧 {a.mechanicName}
+              </div>
+            )}
+
+          </div>
+        ))}
+
+      </div>
+
+    </div>
+  );
+
+})}
+
+</div>
 ) : dashboardMode === 'rows' ? (
 
   <div className="overflow-x-auto">
@@ -1690,7 +1817,18 @@ title="Eliminar"
 
         {filteredAppts.map(a => (
 
-          <tr key={a.id} className="hover:bg-slate-800/50">
+                      <tr
+                key={a.id}
+                className={`hover:bg-slate-800/50 border-l-4 ${
+                  a.status === 'listo'
+                    ? 'border-emerald-500'
+                    : a.status === 'en-proceso'
+                    ? 'border-blue-500'
+                    : a.status === 'recibido'
+                    ? 'border-amber-500'
+                    : 'border-slate-700'
+                }`}
+              >
 
             <td className="p-3 font-mono text-white font-bold">#{a.orderId}</td>
             <td>{new Date(a.date).toLocaleString()}</td>
@@ -1701,24 +1839,80 @@ title="Eliminar"
             <td>
               <Badge status={a.status} labels={activeIndustry.statusLabels}/>
             </td>
-            <td>
+     <td>
   <div className="flex gap-2">
 
-    <Button variant="ghost" onClick={()=>openRescheduleModal(a,'admin')}>
-      <Edit size={14}/>
-    </Button>
+    {/* RECEPCIONAR */}
+    {a.status === 'pendiente' && (
+      <div className="relative group">
+        <button
+          onClick={()=>setReceptionModal({
+            appt: a,
+            bikeModel: a.bikeModel,
+            serviceType: a.serviceType,
+            notes: a.notes || ''
+          })}
+          className="p-2 rounded bg-slate-800 text-slate-400 border border-slate-700
+          hover:bg-amber-600/20 hover:text-amber-400 hover:border-amber-500/40 transition"
+        >
+          <FileText size={14}/>
+        </button>
 
-    <Button variant="ghost" onClick={()=>updateStatus(a.id,'pendiente')}>
-      <RotateCcw size={14}/>
-    </Button>
+        <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-xs px-2 py-0.5 rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap">
+          Recepcionar
+        </span>
+      </div>
+    )}
 
-    <Button variant="ghost" onClick={()=>handleDeleteAppointment(a.id)}>
-      <Trash2 size={14}/>
-    </Button>
+    {/* WHATSAPP */}
+    <div className="relative group">
+      <button
+        onClick={()=>sendWhatsApp(a.clientPhone, a.clientName, a.bikeModel, a.status)}
+        className="p-2 rounded bg-slate-800 text-slate-400 border border-slate-700
+        hover:bg-green-600/20 hover:text-green-400 hover:border-green-500/40 transition"
+      >
+        <MessageCircle size={14}/>
+      </button>
+
+      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-xs px-2 py-0.5 rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap">
+        WhatsApp
+      </span>
+    </div>
+
+    {/* ENTREGADO */}
+    {a.status === 'listo' && (
+      <div className="relative group">
+        <button
+          onClick={()=>updateStatus(a.id,'retirado',{deliveredAt:new Date().toISOString()})}
+          className="p-2 rounded bg-slate-800 text-slate-400 border border-slate-700
+          hover:bg-emerald-600/20 hover:text-emerald-400 hover:border-emerald-500/40 transition"
+        >
+          <CheckCircle size={14}/>
+        </button>
+
+        <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-xs px-2 py-0.5 rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap">
+          Entregado
+        </span>
+      </div>
+    )}
+
+    {/* REPROGRAMAR */}
+    <div className="relative group">
+      <button
+        onClick={()=>openRescheduleModal(a,'admin')}
+        className="p-2 rounded bg-slate-800 text-slate-400 border border-slate-700
+        hover:bg-violet-600/20 hover:text-violet-400 hover:border-violet-500/40 transition"
+      >
+        <Edit size={14}/>
+      </button>
+
+      <span className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-xs px-2 py-0.5 rounded text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap">
+        Reprogramar
+      </span>
+    </div>
 
   </div>
 </td>
-
 
           </tr>
 
