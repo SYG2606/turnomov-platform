@@ -1042,11 +1042,7 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=ORD
       <html><head><title>Orden #${appt.orderId}</title><style>${styles}</style></head>
       <body>
         <div class="container">
-            <div class="header">
-                ${logoHtml}
-                <h2 style="margin:0">${shopConfig.shopName}</h2>
-                <div style="font-size:10px">${shopConfig.shopAddress}</div>
-            </div>
+            
             
             <div class="big-id">ORDEN #${appt.orderId}</div>
             
@@ -1076,8 +1072,15 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=ORD
 
         <div class="container" style="border-style: dashed;">
             <div class="header" style="border:none; padding-bottom:0">
-                <h3 style="margin:0">${shopConfig.shopName}</h3>
                 <div style="font-size:11px">Comprobante de Recepción</div>
+                </div>
+            <div class="header">
+                ${logoHtml}
+                <h2 style="margin:0">${shopConfig.shopName}</h2>
+                <div class="row" style="justify-content:center"><span>📞 ${shopConfig.shopPhone}</span></div>
+            
+                <div style="font-size:10px"> 📍${shopConfig.shopAddress}</div>
+            </div>
             </div>
             
             <div class="big-id" style="font-size:18px">#${appt.orderId}</div>
@@ -1088,9 +1091,7 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=ORD
             <br/>
             <div style="text-align:center; font-weight:bold; font-size:12px">
                 CONTACTO ${activeIndustry.placeLabel.toUpperCase()}
-            </div>
-            <div class="row" style="justify-content:center"><span>📞 ${shopConfig.shopPhone}</span></div>
-            <div class="row" style="justify-content:center"><span>📍 ${shopConfig.shopAddress}</span></div>
+            
             <div style="text-align:center;margin-top:10px">
             <img src="${qrUrl}" style="width:120px"/>
             </div>
@@ -1227,7 +1228,7 @@ const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=ORD
   const sendWhatsApp = (phone, name, bike, status) => {
     if (!phone) { alert("Sin teléfono."); return; }
     let msg = `Hola ${name}, mensaje de ${shopConfig.shopName} sobre tu ${bike}.`;
-    if (status === 'listo') msg = `Hola ${name}! 👋 Tu *${bike}* ya está lista para retirar en ${shopConfig.shopName}. 🚲\nHorarios: Lun a Vie 9-18hs.`;
+    if (status === 'listo') msg = `Hola ${name}! 👋 Tu *${bike}* ya está lista para retirar en ${shopConfig.shopName}. 🚲\nHorarios: Lun a Sabados en nuestros horarios.`;
     window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
