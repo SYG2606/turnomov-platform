@@ -634,50 +634,91 @@ const filteredAppts = appointments
       } catch (e) { return Math.floor(Math.random()*9000)+1000; }
   };
 
-  const createClientAppointment = async () => {
-    if (isSubmitting) return; 
-    if (!user) return alert("Error: No estás conectado al sistema. Recarga la página.");
-    if (!selectedDate || !selectedTimeBlock) return alert("Falta fecha/hora");
-    
-    setIsSubmitting(true);
-    
-    try {
-        const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'turnos'), where('clientId', '==', user.uid), where('status', 'in', ['pendiente', 'recibido', 'en-proceso']));
-        const snap = await getDocs(q);
-        
-        if (snap.size >= 2) {
-            alert("Límite alcanzado: Ya tienes 2 turnos activos. Debes finalizar uno para reservar otro.");
-            setIsSubmitting(false);
-            return;
-        }
+  
+const createClientAppointment = async () => {
+  if (isSubmitting) return;
+  if (!user || !appUser?.dni) return alert("Error: Sesión no válida o DNI faltante.");
+  if (!selectedDate || !selectedTimeBlock) return alert("Por favor, selecciona fecha y hora.");
 
-        const d = new Date(selectedDate);
-        
-        // LOGICA DE HORA
-        if (shopConfig.scheduleMode === 'slots') {
-            const [hours, minutes] = selectedTimeBlock.split(':').map(Number);
-            d.setHours(hours, minutes, 0, 0);
-        } else {
-            if (selectedTimeBlock === 'morning') d.setHours(9, 0, 0, 0); 
-            else d.setHours(18, 0, 0, 0);
-        }
-        
-        const orderNum = await generateOrderNumber();
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'turnos'), {
-            orderId: orderNum, clientId: user.uid, clientName: appUser.name, clientDni: appUser.dni, clientPhone: appUser.phone,
-            bikeModel: clientBikeModel || appUser.bikeModel || 'No especificada', serviceType, date: d.toISOString(), dateString: formatDateForQuery(d),
-            timeBlock: selectedTimeBlock, notes: apptNotes, status: 'pendiente', createdBy: 'client', createdAt: new Date().toISOString()
-        });
-        alert(`¡Turno #${orderNum} Reservado!`); setSelectedDate(null);
+  setIsSubmitting(true);
 
-    } catch (e) { 
-        console.error(e);
-        alert("Error al reservar: " + e.message); 
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
+  try {
+    const dateStr = formatDateForQuery(selectedDate);
+    const turnosRef = collection(db, 'artifacts', appId, 'public', 'data', 'turnos');
 
+    // --- CAMBIO 1: VALIDACIÓN DE CUPO DIARIO (OVERBOOKING) ---
+    const qDia = query(
+      turnosRef, 
+      where('dateString', '==', dateStr),
+      where('status', '!=', 'cancelado') 
+    );
+    
+    const snapDia = await getDocs(qDia);
+    
+    if (snapDia.size >= Number(shopConfig.maxPerDay)) {
+      alert(`Cupo completo: Lo sentimos, ya no quedan lugares para el día ${dateStr}.`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // --- CAMBIO 2: VALIDACIÓN DE TURNOS POR CLIENTE (ABUSO) ---
+    const clientDniStr = String(appUser.dni).trim();
+    const qUser = query(
+      turnosRef,
+      where('clientDni', '==', clientDniStr),
+      where('status', 'in', ['pendiente', 'recibido', 'en-proceso'])
+    );
+    const snapUser = await getDocs(qUser);
+
+    if (snapUser.size >= 2) {
+      alert("Límite de usuario: Ya tienes 2 turnos activos. Debes completar tus servicios actuales para pedir uno nuevo.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // --- LÓGICA DE REGISTRO ---
+    const appointmentDate = new Date(selectedDate);
+    if (shopConfig.scheduleMode === 'slots') {
+      const [h, m] = selectedTimeBlock.split(':').map(Number);
+      appointmentDate.setHours(h, m, 0, 0);
+    } else {
+      appointmentDate.setHours(selectedTimeBlock === 'morning' ? 9 : 18, 0, 0, 0);
+    }
+
+    const orderNum = await generateOrderNumber();
+
+    await addDoc(turnosRef, {
+      orderId: orderNum,
+      clientId: user.uid,
+      clientName: appUser.name,
+      clientDni: clientDniStr,
+      clientPhone: appUser.phone || '',
+      bikeModel: clientBikeModel || appUser.bikeModel || 'No especificada',
+      serviceType: serviceType,
+      date: appointmentDate.toISOString(),
+      dateString: dateStr,
+      timeBlock: selectedTimeBlock,
+      notes: apptNotes.trim(),
+      status: 'pendiente',
+      createdBy: 'client',
+      createdAt: new Date().toISOString(),
+      tenantId: appId // Aislamiento Multi-tenant
+    });
+
+    alert(`¡Turno #${orderNum} reservado correctamente!`);
+    
+    // Cleanup UI
+    setSelectedDate(null);
+    setSelectedTimeBlock(null);
+    setApptNotes('');
+
+  } catch (e) {
+    console.error("Error crítico en reserva:", e);
+    alert("Error de conexión con el servidor. Intente nuevamente.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const triggerResetPassword = async (id, name) => {
       if (!window.confirm(`¿Resetear clave de ${name} a "${GENERIC_PASS}"?`)) return;
       try {
@@ -1673,68 +1714,105 @@ safeTimeout(() => {
         {subView === 'dashboard' && <>
             {receptionModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setReceptionModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-2xl font-bold text-white mb-2">Recepción de {activeIndustry.itemLabel}</h3><div className="bg-blue-900/20 border border-blue-500/20 p-4 rounded-xl mb-6 flex items-center gap-3"><User className="text-blue-400"/><div className="text-sm"><p className="text-blue-200 font-bold">{receptionModal.appt.clientName}</p><p className="text-blue-400/60">DNI: {receptionModal.appt.clientDni}</p></div></div><form onSubmit={handleReceptionConfirm} className="space-y-5"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{activeIndustry.itemLabel} (Verificar)</label><input value={receptionModal.bikeModel} onChange={e=>setReceptionModal({...receptionModal, bikeModel:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Servicio a Realizar</label><select value={receptionModal.serviceType} onChange={e=>setReceptionModal({...receptionModal, serviceType:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition">{availableServices.map(s=><option key={s} value={s}>{s}</option>)}</select></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Notas / Diagnóstico Visual</label><textarea value={receptionModal.notes} onChange={e=>setReceptionModal({...receptionModal, notes:e.target.value})} rows="3" className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition resize-none" placeholder="Estado general..."/></div><Button type="submit" className="w-full py-4 text-lg mt-2">Confirmar e Imprimir Orden</Button></form></Card></div>}
             
-            <div className="mb-8 p-4 bg-slate-900/50 rounded-2xl border border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-4 shadow-inner">
-                <div className="md:col-span-4 relative"><Search className="absolute left-4 top-3.5 text-slate-500" size={20}/><input placeholder={`Buscar ID, Cliente, ${activeIndustry.itemLabel}...`} value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full bg-slate-950 border-slate-800 border rounded-xl pl-12 p-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"/></div>
-                <div className="md:col-span-3"><select value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 cursor-pointer"><option value="all">Todos los Estados</option><option value="pendiente">Pendientes</option><option value="recibido">En Espera ({activeIndustry.placeLabel})</option><option value="en-proceso">En Proceso</option><option value="listo">Entregado</option></select></div>
-                <div className="md:col-span-3 flex gap-2">
-                    <button onClick={()=>setDashboardMode('list')} className={`flex-1 flex items-center justify-center rounded-xl transition ${dashboardMode==='list'?'bg-blue-600 text-white':'bg-slate-800 text-slate-400'}`}><List size={20}/></button>
-                    <button onClick={()=>setDashboardMode('board')} className={`flex-1 flex items-center justify-center rounded-xl transition ${dashboardMode==='board'?'bg-blue-600 text-white':'bg-slate-800 text-slate-400'}`}><Layout size={20}/></button>
-                    <button
-                    onClick={()=>setDashboardMode('rows')}
-                    className={`flex-1 flex items-center justify-center rounded-xl transition ${
-                    dashboardMode==='rows'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-400'
-                    }`}
-                    >
-                    <FileText size={20}/>
-                    </button>
-                            <button
-                              onClick={()=>setDashboardMode('week')}
-                              className={`flex-1 flex items-center justify-center rounded-xl transition ${
-                              dashboardMode==='week'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-800 text-slate-400'
-                            }`}
-                                >
-                             <Calendar size={20}/>
-                            </button>
-                </div>
-                <div className="md:col-span-2"><Button variant="secondary" onClick={printList} className="w-full h-full flex gap-2 items-center justify-center bg-slate-800 border-slate-700 hover:bg-slate-700"><Printer size={18}/> Reporte</Button></div>
-            </div>
-           {dashboardMode === 'list' ? (
-
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-
-    {/* cards existentes */}
-<div className="group h-full">
-  <Card
-    theme={theme}
-    onClick={()=>{setAdminApptStep(1); setShowAdminApptModal(true)}}
-    className={`
-      h-full border-2 border-dashed flex flex-col justify-center items-center gap-4
-      transition-all duration-300 group cursor-pointer
-      ${theme === "light"
-        ? "border-slate-300 bg-white hover:bg-slate-50"
-        : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/80 hover:border-blue-500/50"}
-    `}
-  >
-    <div className={`
-      w-20 h-20 rounded-full flex items-center justify-center
-      transition-all duration-300 shadow-xl
-      ${theme === "light"
-        ? "bg-slate-100 group-hover:bg-blue-600"
-        : "bg-slate-800 group-hover:bg-blue-600"}
-    `}>
-      <Plus size={40}/>
+            {/* --- SECTOR DE FILTROS Y BUSQUEDA --- */}
+<div className={`mb-8 p-4 rounded-2xl border grid grid-cols-1 md:grid-cols-12 gap-4 shadow-sm transition-colors ${
+    theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/50 border-slate-800'
+}`}>
+    <div className="md:col-span-4 relative">
+        <Search className="absolute left-4 top-3.5 text-slate-500" size={20}/>
+        <input 
+            placeholder={`Buscar ID, Cliente, ${activeIndustry.itemLabel}...`} 
+            value={searchTerm} 
+            onChange={e=>setSearchTerm(e.target.value)} 
+            className={`w-full border rounded-xl pl-12 p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400' : 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-600'
+            }`}
+        />
+    </div>
+    
+    <div className="md:col-span-3">
+        <select 
+            value={statusFilter} 
+            onChange={e=>setStatusFilter(e.target.value)} 
+            className={`w-full border rounded-xl p-3 outline-none cursor-pointer ${
+                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-950 border-slate-800 text-white'
+            }`}
+        >
+            <option value="all">Todos los Estados</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="recibido">En Espera ({activeIndustry.placeLabel})</option>
+            <option value="en-proceso">En Proceso</option>
+            <option value="listo">Entregado</option>
+        </select>
     </div>
 
-    <h3 className={`${theme === "light" ? "text-slate-800" : "text-white"} font-bold`}>
-      Nuevo Turno
-    </h3>
+    <div className="md:col-span-3 flex gap-2">
+        {[
+            { id: 'list', icon: List },
+            { id: 'board', icon: Layout },
+            { id: 'rows', icon: FileText },
+            { id: 'week', icon: Calendar }
+        ].map((mode) => (
+            <button 
+                key={mode.id}
+                onClick={() => setDashboardMode(mode.id)} 
+                className={`flex-1 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                    dashboardMode === mode.id
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                        : theme === 'light' 
+                            ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' 
+                            : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white'
+                }`}
+            >
+                <mode.icon size={20}/>
+            </button>
+        ))}
+    </div>
 
-  </Card>
+    <div className="md:col-span-2">
+        <Button 
+            variant="secondary" 
+            theme={theme}
+            onClick={printList} 
+            className="w-full h-full flex gap-2 items-center justify-center"
+        >
+            <Printer size={18}/> Reporte
+        </Button>
+    </div>
 </div>
+
+{/* --- SECTOR DE GRID DE CARDS --- */}
+{dashboardMode === 'list' ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        
+        {/* CARD NUEVO TURNO (CORREGIDA) */}
+        <div className="group h-full">
+            <Card
+                theme={theme}
+                onClick={() => { setAdminApptStep(1); setShowAdminApptModal(true) }}
+                className={`h-full border-2 border-dashed flex flex-col justify-center items-center gap-4 transition-all duration-300 group cursor-pointer ${
+                    theme === "light"
+                        ? "border-slate-300 bg-white hover:border-blue-500 hover:bg-blue-50/30"
+                        : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/80 hover:border-blue-500/50"
+                }`}
+            >
+                <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl ${
+                    theme === "light"
+                        ? "bg-slate-50 text-slate-400 group-hover:bg-blue-600 group-hover:text-white"
+                        : "bg-slate-800 text-slate-500 group-hover:bg-blue-600 group-hover:text-white"
+                }`}>
+                    <Plus size={40}/>
+                </div>
+
+                <h3 className={`font-bold transition-colors ${
+                    theme === "light" ? "text-slate-500 group-hover:text-blue-600" : "text-slate-400 group-hover:text-white"
+                }`}>
+                    Nuevo Turno
+                </h3>
+            </Card>
+        </div>
+
+        {/* ... Resto del mapeo de filteredAppts ... */}
 
 {filteredAppts.map(appt => (
 
@@ -2006,20 +2084,21 @@ title="Eliminar"
 
     <table className="w-full text-sm">
 
-      <thead className={theme === "light"
-  ? "bg-slate-100 text-slate-600"
-  : "bg-slate-800 text-slate-400"}
->
-        <tr>
-          <th className="p-3">Orden</th>
-          <th>Fecha</th>
-          <th>Cliente</th>
-          <th>{activeIndustry.itemLabel}</th>
-          <th>Servicio</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
+      <thead className={`
+  sticky top-0 z-10 uppercase text-[11px] tracking-wider font-bold
+  ${theme === "light" ? "bg-slate-100 text-slate-600" : "bg-slate-800 text-slate-400"}
+`}>
+  <tr>
+    <th className="p-4 text-center w-24">Orden</th>
+    <th className="p-4 text-center">Fecha</th>
+    <th className="p-4 text-left">DNI</th>
+    <th className="p-4 text-left">Cliente</th>
+    <th className="p-4 text-left">{activeIndustry.itemLabel}</th>
+    <th className="p-4 text-left">Servicio</th>
+    <th className="p-4 text-center">Estado</th>
+    <th className="p-4 text-center">Acciones</th>
+  </tr>
+</thead>
 
     <tbody className={
   theme === "light"
@@ -2043,8 +2122,15 @@ title="Eliminar"
                 }`}
               >
 
-            <td className="p-3 font-mono text-white font-bold">#{a.orderId}</td>
-            <td>{new Date(a.date).toLocaleString()}</td>
+            <td className="p-3 font-mono text-blue font-bold">#{a.orderId}</td>
+            <td className="p-4">
+  {new Date(a.date).toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })}
+</td>
+            <td>{a.clientDni}</td>
             <td>{a.clientName}</td>
             <td>{a.bikeModel}</td>
             <td>{a.serviceType}</td>
