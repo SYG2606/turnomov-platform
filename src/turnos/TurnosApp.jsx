@@ -112,6 +112,18 @@ const IconMap = {
   Bike, Wrench, Smartphone, Cpu, Scissors, Sparkles, Dumbbell, Trophy, 
   Stethoscope, Heart, Car, Key, PawPrint, Bone 
 };
+const themeClasses = {
+  light: {
+    app: "bg-slate-100 text-slate-800",
+    header: "bg-white border-b border-slate-200",
+    card: "bg-white border border-slate-200 shadow-sm"
+  },
+  dark: {
+    app: "bg-slate-950 text-white",
+    header: "bg-slate-900 border-b border-slate-800",
+    card: "bg-slate-800 border border-slate-700 shadow-xl"
+  }
+};
 
 const GENERIC_PASS = "Turno2026";
 const formatDateForQuery = (d) => d.toISOString().split('T')[0];
@@ -121,29 +133,65 @@ const formatDisplayDate = (d) => {
 };
 
 // Componentes UI simples (fuera para no recrearlos en cada render)
-const Button = ({ children, onClick, variant = 'primary', className = '', disabled, ...props }) => {
-  const variants = {
-    primary: 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-900/20 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed',
-    secondary: 'bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 hover:border-slate-500 disabled:opacity-50',
-    admin: 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20 disabled:bg-slate-700',
-    danger: 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 disabled:opacity-50',
-    success: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 disabled:opacity-50',
-    whatsapp: 'bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20 disabled:opacity-50',
-    ghost: 'hover:bg-slate-800 text-slate-400 hover:text-white disabled:opacity-50'
-  };
-  return (
-    <button onClick={onClick} disabled={disabled} className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 relative z-10 ${variants[variant]} ${className}`} {...props}>
-      {children}
-    </button>
-  );
+const Button = ({ children, variant='primary', theme, className='', ...props }) => {
+
+  const styles = {
+
+    primary:
+      theme === "light"
+        ? "bg-blue-600 hover:bg-blue-700 text-white"
+        : "bg-orange-600 hover:bg-orange-700 text-white",
+
+    secondary:
+      theme === "light"
+        ? "bg-white border border-slate-300 text-slate-800 hover:bg-slate-100"
+        : "bg-slate-800 border border-slate-700 text-white hover:bg-slate-700",
+
+    ghost:
+      theme === "light"
+        ? "text-slate-600 hover:bg-slate-100"
+        : "text-slate-400 hover:bg-slate-800"
+
+  };
+
+  return (
+    <button
+      {...props}
+      className={`
+        px-4 py-2 rounded-lg font-medium
+        transition-all duration-200
+        ${styles[variant]}
+        ${className}
+      `}
+    >
+      {children}
+    </button>
+  );
+
 };
 
-const Card = ({ children, className = '', onClick }) => (
-  <div onClick={onClick} className={`bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl relative z-0 ${className} ${onClick ? 'cursor-pointer hover:border-slate-600 hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300' : ''}`}>
-    {children}
-  </div>
-);
+const Card = ({ children, className = '', onClick, theme = "dark" }) => {
 
+  const base =
+    theme === "light"
+      ? "bg-white border border-slate-200 shadow-sm text-slate-800"
+      : "bg-slate-800 border border-slate-700 shadow-xl text-white";
+
+  return (
+    <div
+      onClick={onClick}
+      className={`
+        ${base}
+        rounded-2xl p-6
+        transition-all duration-200
+        ${onClick ? "cursor-pointer hover:shadow-md hover:-translate-y-0.5" : ""}
+        ${className}
+      `}
+    >
+      {children}
+    </div>
+  );
+};
 const Badge = ({ status, labels }) => {
   const styles = {
     'pendiente': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
@@ -198,6 +246,21 @@ export default function TurnosApp() { 
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+// ----------------------------
+// TEMA VISUAL (CLARO / OSCURO)
+// ----------------------------
+const [theme, setTheme] = useState(() => {
+  const saved = localStorage.getItem("turnos_theme");
+  return saved || "light";
+});
+
+useEffect(() => {
+  localStorage.setItem("turnos_theme", theme);
+}, [theme]);
+
+const toggleTheme = () => {
+  setTheme(prev => prev === "light" ? "dark" : "light");
+};
 
   // Configuración Principal
   const [shopConfig, setShopConfig] = useState({ 
@@ -510,6 +573,7 @@ const filteredAppts = appointments
 
     return match && status && date;
   })
+
 
   // 👇 ORDEN REAL POR FECHA + HORA
   .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -1321,17 +1385,80 @@ safeTimeout(() => {
 
   // --- VISTA RESET PASSWORD ---
   if (view === 'force-change-password') return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><div className="max-w-md w-full"><div className="text-center mb-8"><div className="w-20 h-20 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce shadow-xl shadow-orange-900/40"><Lock size={36} className="text-white"/></div><h1 className="text-2xl font-bold text-white">Cambio Obligatorio</h1><p className="text-slate-400 mt-2">Por seguridad, actualiza tu contraseña temporal.</p></div><Card className="border-orange-500/30"><form onSubmit={handleChangePassword} className="space-y-4"><input type="password" required className="w-full bg-slate-900/50 text-white rounded-lg p-3 border border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" value={newPasswordForm.new} onChange={e=>setNewPasswordForm({...newPasswordForm,new:e.target.value})} placeholder="Nueva Clave" /><input type="password" required className="w-full bg-slate-900/50 text-white rounded-lg p-3 border border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" value={newPasswordForm.confirm} onChange={e=>setNewPasswordForm({...newPasswordForm,confirm:e.target.value})} placeholder="Confirmar" /><Button type="submit" className="w-full mt-4 py-3">Actualizar Clave</Button></form></Card></div></div>
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><div className="max-w-md w-full"><div className="text-center mb-8"><div className="w-20 h-20 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce shadow-xl shadow-orange-900/40"><Lock size={36} className="text-white"/></div><h1 className="text-2xl font-bold text-white">Cambio Obligatorio</h1><p className="text-slate-400 mt-2">Por seguridad, actualiza tu contraseña temporal.</p></div><Card theme={theme} className="border-orange-500/30"><form onSubmit={handleChangePassword} className="space-y-4"><input type="password" required className="w-full bg-slate-900/50 text-white rounded-lg p-3 border border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" value={newPasswordForm.new} onChange={e=>setNewPasswordForm({...newPasswordForm,new:e.target.value})} placeholder="Nueva Clave" /><input type="password" required className="w-full bg-slate-900/50 text-white rounded-lg p-3 border border-slate-700 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-all" value={newPasswordForm.confirm} onChange={e=>setNewPasswordForm({...newPasswordForm,confirm:e.target.value})} placeholder="Confirmar" /><Button type="submit" className="w-full mt-4 py-3">Actualizar Clave</Button></form></Card></div></div>
   );
 
   // --- COMPONENTE HEADER ---
   const Header = () => (
-    <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 transition-all"><div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between"><div className="flex items-center gap-3"><div className={`p-2 rounded-xl w-10 h-10 flex items-center justify-center overflow-hidden shadow-lg ${appUser.role==='mechanic'?'bg-gradient-to-br from-blue-600 to-blue-700':'bg-gradient-to-br from-orange-600 to-orange-700'}`}>{shopConfig.logoUrl?<img src={shopConfig.logoUrl} className="w-full h-full object-cover"/>:<ItemIcon size={24} className="text-white"/>}</div><div><h1 className="text-lg font-bold text-white leading-tight tracking-tight">{shopConfig.shopName}</h1><p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{appUser.role==='client'?'Cliente':(appUser.isAdmin?'Admin':'Mecánico')}</p></div></div><div className="flex items-center gap-4"><div className="hidden sm:block text-right"><p className="text-sm text-white font-medium">{appUser.name}</p><p className="text-xs text-slate-500">{appUser.dni}</p></div><Button variant="ghost" onClick={handleLogout} className="text-slate-400 hover:text-white hover:bg-slate-800"><LogOut size={20}/></Button></div></div></header>
-  );
+  <header className={`sticky top-0 z-40 transition-all ${themeClasses[theme].header}`}>
+    
+    <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+
+      {/* LOGO + NOMBRE */}
+      <div className="flex items-center gap-3">
+
+        <div className={`p-2 rounded-xl w-10 h-10 flex items-center justify-center overflow-hidden shadow-lg ${
+          appUser.role === 'mechanic'
+            ? 'bg-gradient-to-br from-blue-600 to-blue-700'
+            : 'bg-gradient-to-br from-orange-600 to-orange-700'
+        }`}>
+          {shopConfig.logoUrl
+            ? <img src={shopConfig.logoUrl} className="w-full h-full object-cover"/>
+            : <ItemIcon size={24} className="text-white"/>
+          }
+        </div>
+
+        <div>
+          <h1 className="text-lg font-bold leading-tight tracking-tight">
+            {shopConfig.shopName}
+          </h1>
+
+          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+            {appUser.role === 'client'
+              ? 'Cliente'
+              : (appUser.isAdmin ? 'Admin' : 'Mecánico')}
+          </p>
+        </div>
+
+      </div>
+
+      {/* LADO DERECHO */}
+      <div className="flex items-center gap-4">
+
+        {/* INFO USUARIO */}
+        <div className="hidden sm:block text-right">
+          <p className="text-sm text-white font-medium">{appUser.name}</p>
+          <p className="text-xs text-slate-500">{appUser.dni}</p>
+        </div>
+
+        {/* BOTON CAMBIO DE TEMA */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+          title="Cambiar tema"
+        >
+          {theme === "light" ? <Moon size={20}/> : <Sun size={20}/>}
+        </button>
+
+        {/* BOTON SALIR */}
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          className="text-slate-400 hover:text-white hover:bg-slate-800"
+        >
+          <LogOut size={20}/>
+        </Button>
+
+      </div>
+
+    </div>
+
+  </header>
+);
 
   // --- VISTA LOGIN ---
   if (view === 'login') return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-all duration-700 ${isStaffLogin?'bg-slate-950':'bg-slate-900'}`}><div className="max-w-md w-full"><div className="text-center mb-8"><div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl transition-all duration-500 ${isStaffLogin?'bg-blue-600 shadow-blue-900/40':'bg-orange-600 shadow-orange-900/40'} overflow-hidden`}>{shopConfig.logoUrl?<img src={shopConfig.logoUrl} className="w-full h-full object-cover"/>:(isStaffLogin?<Shield size={48} className="text-white"/>:<ItemIcon size={48} className="text-white"/>)}</div><h1 className="text-4xl font-bold text-white mb-2 tracking-tight">{shopConfig.shopName}</h1><p className={`text-sm font-medium tracking-wide uppercase ${isStaffLogin?'text-blue-400':'text-slate-400'}`}>{isStaffLogin?'Acceso Administrativo':'Portal de Clientes'}</p></div><Card className={`${isStaffLogin?'border-blue-500/30':'border-slate-700'}`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-all duration-700 ${isStaffLogin?'bg-slate-950':'bg-slate-900'}`}><div className="max-w-md w-full"><div className="text-center mb-8"><div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl transition-all duration-500 ${isStaffLogin?'bg-blue-600 shadow-blue-900/40':'bg-orange-600 shadow-orange-900/40'} overflow-hidden`}>{shopConfig.logoUrl?<img src={shopConfig.logoUrl} className="w-full h-full object-cover"/>:(isStaffLogin?<Shield size={48} className="text-white"/>:<ItemIcon size={48} className="text-white"/>)}</div><h1 className="text-4xl font-bold text-white mb-2 tracking-tight">{shopConfig.shopName}</h1><p className={`text-sm font-medium tracking-wide uppercase ${isStaffLogin?'text-blue-400':'text-slate-400'}`}>{isStaffLogin?'Acceso Administrativo':'Portal de Clientes'}</p></div><Card theme={theme} className={`${isStaffLogin?'border-blue-500/30':'border-slate-700'}`}>
         {isStaffLogin ? (
             <form onSubmit={handleStaffLogin} className="space-y-4">
                 {mechanics.length===0 && <div className="bg-blue-500/10 border border-blue-500/50 p-4 rounded-xl mb-4 text-sm text-blue-200 text-center shadow-lg"><p className="font-bold mb-1">¡Bienvenido!</p>Serás el <strong>Primer Admin</strong>. Esta clave será la definitiva.</div>}
@@ -1433,8 +1560,8 @@ safeTimeout(() => {
 
   // --- VISTA DASHBOARD CLIENTE ---
   if (view === 'client-dashboard') return (
-    <div className="min-h-screen bg-slate-950 pb-20"><Header /><main className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
-        <div className="lg:col-span-2"><h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3"><span className="bg-orange-600/20 text-orange-500 p-2 rounded-lg"><Plus size={24}/></span> Reservar Nuevo Turno</h2><Card><div className="mb-8"><h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">1. Selecciona un Día</h3>{renderDateSelector(setSelectedDate, selectedDate)}</div>{selectedDate && <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+    <div className={`min-h-screen pb-20 transition-colors duration-300 ${themeClasses[theme].app}`}><Header /><main className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
+        <div className="lg:col-span-2"><h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3"><span className="bg-orange-600/20 text-orange-500 p-2 rounded-lg"><Plus size={24}/></span> Reservar Nuevo Turno</h2><Card theme={theme}><div className="mb-8"><h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">1. Selecciona un Día</h3>{renderDateSelector(setSelectedDate, selectedDate)}</div>{selectedDate && <div className="mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
                 <h3 className="text-xs font-bold text-slate-500 mb-4 uppercase tracking-widest">2. Elige Horario</h3>
                 
                 {shopConfig.scheduleMode === 'blocks' ? (
@@ -1486,11 +1613,11 @@ safeTimeout(() => {
             return <Card key={appt.id} className="relative group overflow-hidden"><div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><ItemIcon size={80}/></div><div className="flex flex-col gap-3 relative z-10"><div className="flex justify-between items-center mb-1"><Badge status={appt.status} labels={activeIndustry.statusLabels} /><span className="text-xs font-mono text-slate-500 bg-slate-900 px-2 py-1 rounded">#{appt.orderId}</span></div><div><h3 className="text-lg font-bold text-white leading-tight">{appt.serviceType}</h3><p className="text-slate-400 text-sm mt-1">{appt.bikeModel}</p></div><div className="flex items-center gap-3 mt-2 bg-slate-900/60 p-3 rounded-xl text-sm text-slate-300 border border-slate-800"><Calendar size={16} className="text-orange-500"/><div className="flex flex-col leading-none"><span className="text-xs text-slate-500 font-bold uppercase">Fecha</span><span>{new Date(appt.date).toLocaleDateString()} • {appt.timeBlock==='morning'?'Mañana':(appt.timeBlock==='afternoon'?'Tarde':appt.timeBlock)}</span></div></div>{(appt.status === 'pendiente' && isFuture) && <Button variant="secondary" onClick={()=>openRescheduleModal(appt, 'client')} className="w-full text-xs mt-2 border-slate-700">Reprogramar (48hs)</Button>}</div></Card>
         })}</div>
         
-        {rescheduleModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
+        {rescheduleModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
         
         {confirmModal && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
-                <Card className="w-full max-w-sm border-red-500/30 bg-slate-900 shadow-2xl">
+                <Card theme={theme} className="w-full max-w-sm border-red-500/30 bg-slate-900 shadow-2xl">
                     <div className="flex justify-center mb-4 text-red-500">
                         <AlertCircle size={48} />
                     </div>
@@ -1520,12 +1647,12 @@ safeTimeout(() => {
 
   // --- VISTA ADMIN (SUB-VIEWS) ---
   return (
-    <div className="min-h-screen bg-slate-950 pb-20"><Header /><div className="max-w-7xl mx-auto px-4 mt-6 border-b border-slate-800 flex flex-wrap gap-2 overflow-x-auto pb-1"><button onClick={()=>setSubView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${subView==='dashboard'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}>Panel de Turnos</button>{appUser.isAdmin && <><button onClick={()=>setSubView('clients')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='clients'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Users size={16}/> Clientes</button><button onClick={()=>setSubView('stats')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='stats'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><BarChart3 size={16}/> Estadísticas</button><button onClick={()=>setSubView('config')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='config'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Settings size={16}/> Config</button><button onClick={()=>setSubView('mechanics-mgmt')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='mechanics-mgmt'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Shield size={16}/> Staff</button></>}</div>
+    <div className={`min-h-screen pb-20 transition-colors duration-300 ${themeClasses[theme].app}`}><Header /><div className="max-w-7xl mx-auto px-4 mt-6 border-b border-slate-800 flex flex-wrap gap-2 overflow-x-auto pb-1"><button onClick={()=>setSubView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${subView==='dashboard'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}>Panel de Turnos</button>{appUser.isAdmin && <><button onClick={()=>setSubView('clients')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='clients'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Users size={16}/> Clientes</button><button onClick={()=>setSubView('stats')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='stats'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><BarChart3 size={16}/> Estadísticas</button><button onClick={()=>setSubView('config')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='config'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Settings size={16}/> Config</button><button onClick={()=>setSubView('mechanics-mgmt')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='mechanics-mgmt'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Shield size={16}/> Staff</button></>}</div>
     <main className="max-w-7xl mx-auto px-4 py-8 relative z-0">
         
-        {rescheduleModal && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno (Admin)</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
+        {rescheduleModal && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno (Admin)</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
 
-        {showAdminApptModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setShowAdminApptModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
+        {showAdminApptModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setShowAdminApptModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
             <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2"><Plus className="text-blue-500"/> Nuevo Turno Manual</h3>
             {adminApptStep === 1 ? (
                 <form onSubmit={handleAdminDniSearch} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -1544,7 +1671,7 @@ safeTimeout(() => {
         </Card></div>}
 
         {subView === 'dashboard' && <>
-            {receptionModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setReceptionModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-2xl font-bold text-white mb-2">Recepción de {activeIndustry.itemLabel}</h3><div className="bg-blue-900/20 border border-blue-500/20 p-4 rounded-xl mb-6 flex items-center gap-3"><User className="text-blue-400"/><div className="text-sm"><p className="text-blue-200 font-bold">{receptionModal.appt.clientName}</p><p className="text-blue-400/60">DNI: {receptionModal.appt.clientDni}</p></div></div><form onSubmit={handleReceptionConfirm} className="space-y-5"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{activeIndustry.itemLabel} (Verificar)</label><input value={receptionModal.bikeModel} onChange={e=>setReceptionModal({...receptionModal, bikeModel:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Servicio a Realizar</label><select value={receptionModal.serviceType} onChange={e=>setReceptionModal({...receptionModal, serviceType:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition">{availableServices.map(s=><option key={s} value={s}>{s}</option>)}</select></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Notas / Diagnóstico Visual</label><textarea value={receptionModal.notes} onChange={e=>setReceptionModal({...receptionModal, notes:e.target.value})} rows="3" className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition resize-none" placeholder="Estado general..."/></div><Button type="submit" className="w-full py-4 text-lg mt-2">Confirmar e Imprimir Orden</Button></form></Card></div>}
+            {receptionModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setReceptionModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-2xl font-bold text-white mb-2">Recepción de {activeIndustry.itemLabel}</h3><div className="bg-blue-900/20 border border-blue-500/20 p-4 rounded-xl mb-6 flex items-center gap-3"><User className="text-blue-400"/><div className="text-sm"><p className="text-blue-200 font-bold">{receptionModal.appt.clientName}</p><p className="text-blue-400/60">DNI: {receptionModal.appt.clientDni}</p></div></div><form onSubmit={handleReceptionConfirm} className="space-y-5"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{activeIndustry.itemLabel} (Verificar)</label><input value={receptionModal.bikeModel} onChange={e=>setReceptionModal({...receptionModal, bikeModel:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Servicio a Realizar</label><select value={receptionModal.serviceType} onChange={e=>setReceptionModal({...receptionModal, serviceType:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition">{availableServices.map(s=><option key={s} value={s}>{s}</option>)}</select></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Notas / Diagnóstico Visual</label><textarea value={receptionModal.notes} onChange={e=>setReceptionModal({...receptionModal, notes:e.target.value})} rows="3" className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition resize-none" placeholder="Estado general..."/></div><Button type="submit" className="w-full py-4 text-lg mt-2">Confirmar e Imprimir Orden</Button></form></Card></div>}
             
             <div className="mb-8 p-4 bg-slate-900/50 rounded-2xl border border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-4 shadow-inner">
                 <div className="md:col-span-4 relative"><Search className="absolute left-4 top-3.5 text-slate-500" size={20}/><input placeholder={`Buscar ID, Cliente, ${activeIndustry.itemLabel}...`} value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full bg-slate-950 border-slate-800 border rounded-xl pl-12 p-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-600"/></div>
@@ -1580,17 +1707,46 @@ safeTimeout(() => {
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 
     {/* cards existentes */}
-    <div className="group h-full">
-      <Card onClick={()=>{setAdminApptStep(1); setShowAdminApptModal(true)}} className="h-full border-2 border-dashed border-slate-700 bg-slate-800/30 hover:bg-slate-800/80 hover:border-blue-500/50 flex flex-col justify-center items-center gap-4 transition-all duration-300 group cursor-pointer">
-        <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-300 shadow-xl">
-          <Plus size={40}/>
-        </div>
-        <h3 className="text-white font-bold">Nuevo Turno</h3>
-      </Card>
+<div className="group h-full">
+  <Card
+    theme={theme}
+    onClick={()=>{setAdminApptStep(1); setShowAdminApptModal(true)}}
+    className={`
+      h-full border-2 border-dashed flex flex-col justify-center items-center gap-4
+      transition-all duration-300 group cursor-pointer
+      ${theme === "light"
+        ? "border-slate-300 bg-white hover:bg-slate-50"
+        : "border-slate-700 bg-slate-800/30 hover:bg-slate-800/80 hover:border-blue-500/50"}
+    `}
+  >
+    <div className={`
+      w-20 h-20 rounded-full flex items-center justify-center
+      transition-all duration-300 shadow-xl
+      ${theme === "light"
+        ? "bg-slate-100 group-hover:bg-blue-600"
+        : "bg-slate-800 group-hover:bg-blue-600"}
+    `}>
+      <Plus size={40}/>
     </div>
 
-         {filteredAppts.map(appt => (
-<Card key={appt.id} className={`flex flex-col relative overflow-hidden ${appt.status==='listo'?'border-emerald-500/30 bg-emerald-900/5':''}`}>
+    <h3 className={`${theme === "light" ? "text-slate-800" : "text-white"} font-bold`}>
+      Nuevo Turno
+    </h3>
+
+  </Card>
+</div>
+
+{filteredAppts.map(appt => (
+
+<Card
+key={appt.id}
+theme={theme}
+className={`flex flex-col relative overflow-hidden
+${theme === "light"
+  ? "bg-white border border-slate-200 shadow-sm"
+  : ""}
+${appt.status==='listo'?'border-emerald-500/30 bg-emerald-900/5':''}
+`}>
 
 <div className={`absolute top-0 left-0 w-1 h-full ${
   appt.status==='listo'?'bg-emerald-500':
@@ -1602,58 +1758,95 @@ safeTimeout(() => {
 
 <div className="flex justify-between items-start mb-3">
   <div>
-    <h3 className="text-white font-bold text-lg">{appt.bikeModel}</h3>
-    <div className="text-xs text-slate-400 flex items-center gap-1"><User size={12}/> {appt.clientName}</div>
-    <div className="text-[10px] text-slate-500 font-mono">#{appt.orderId}</div>
+
+    <h3 className={`${theme === "light" ? "text-slate-800" : "text-white"} font-bold text-lg`}>
+      {appt.bikeModel}
+    </h3>
+
+    <div className={`text-xs flex items-center gap-1 ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+      <User size={12}/> {appt.clientName}
+    </div>
+
+    <div className={`text-[10px] font-mono ${theme === "light" ? "text-slate-400" : "text-slate-500"}`}>
+      #{appt.orderId}
+    </div>
+
   </div>
+
   <Badge status={appt.status} labels={activeIndustry.statusLabels}/>
 </div>
 
+
 <div className="flex-grow space-y-3 mb-5">
 
-<div className="bg-slate-900/50 p-2.5 rounded border border-slate-800">
-<p className="text-xs text-blue-400 font-bold uppercase">Servicio</p>
-<p className="text-sm text-slate-300">{appt.serviceType}</p>
+
+<div
+  className={`p-2.5 rounded border ${
+    theme === "light"
+      ? "bg-slate-100 border-slate-200"
+      : "bg-slate-900/50 border-slate-800"
+  }`}
+>
+
+  <p className="text-xs text-blue-400 font-bold uppercase">
+    Servicio
+  </p>
+
+  <p
+    className={`text-sm ${
+      theme === "light" ? "text-slate-700" : "text-slate-300"
+    }`}
+  >
+    {appt.serviceType}
+  </p>
+
 </div>
 
-<span className="text-xs text-slate-400 flex items-center gap-1">
+
+<span className={`text-xs flex items-center gap-1 ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
 <Calendar size={12}/> {new Date(appt.date).toLocaleDateString()}
 </span>
 
-{appt.mechanicName && <div className="text-xs text-blue-400"><Wrench size={10}/> {appt.mechanicName}</div>}
+
+{appt.mechanicName && (
+<div className={`text-xs ${theme === "light" ? "text-blue-600" : "text-blue-400"}`}>
+<Wrench size={10}/> {appt.mechanicName}
+</div>
+)}
 
 </div>
 
+
 {/* BOTONES GRANDES */}
 
-<div className="border-t border-slate-700 pt-4 grid gap-2">
+<div className={`border-t pt-4 grid gap-2 ${theme === "light" ? "border-slate-200" : "border-slate-700"}`}>
 
 {appt.status==='pendiente' &&
-<Button variant="secondary" className="text-xs w-full"
+<Button variant="secondary" theme={theme} className="text-xs w-full"
 onClick={()=>setReceptionModal({appt,bikeModel:appt.bikeModel,serviceType:appt.serviceType,notes:appt.notes||''})}>
 <FileText size={14}/> Recepcionar
 </Button>}
 
 {appt.status==='recibido' &&
-<Button variant="admin" className="text-xs w-full"
+<Button variant="admin" theme={theme} className="text-xs w-full"
 onClick={()=>updateStatus(appt.id,'en-proceso')}>
 <Wrench size={14}/> Iniciar
 </Button>}
 
 {appt.status==='en-proceso' &&
-<Button variant="success" className="text-xs w-full"
+<Button variant="success" theme={theme} className="text-xs w-full"
 onClick={()=>updateStatus(appt.id,'listo')}>
 <CheckCircle size={14}/> Finalizar
 </Button>}
 
 {appt.status==='listo' && (
 <>
-<Button variant="whatsapp" className="text-xs w-full"
+<Button variant="whatsapp" theme={theme} className="text-xs w-full"
 onClick={()=>sendWhatsApp(appt.clientPhone, appt.clientName, appt.bikeModel,'listo')}>
 <MessageCircle size={14}/> Avisar Retiro
 </Button>
 
-<Button variant="success" className="text-xs w-full"
+<Button variant="success" theme={theme} className="text-xs w-full"
 onClick={()=>updateStatus(appt.id,'retirado',{deliveredAt:new Date().toISOString()})}>
 <CheckCircle size={14}/> Marcar Entregado
 </Button>
@@ -1662,60 +1855,72 @@ onClick={()=>updateStatus(appt.id,'retirado',{deliveredAt:new Date().toISOString
 
 </div>
 
-{/* BARRA INFERIOR DE ICONOS (RESTABLECIDA) */}
+
+{/* ICONOS INFERIORES */}
+
 <div className="flex justify-between pt-3 mt-2 gap-2">
 
-{/* WhatsApp */}
+
 <button
 onClick={()=>sendWhatsApp(appt.clientPhone, appt.clientName, appt.bikeModel, appt.status)}
-className="p-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700
-hover:bg-green-600/20 hover:text-green-400 hover:border-green-500/40
-hover:scale-110 transition-all duration-200"
+className={`p-2 rounded-lg border transition-all duration-200 hover:scale-110 ${
+  theme === "light"
+    ? "bg-white text-slate-500 border-slate-200 hover:bg-green-100"
+    : "bg-slate-800 text-slate-400 border-slate-700"
+}`}
 title="WhatsApp"
 >
 <MessageCircle size={16}/>
 </button>
 
-{/* Reimprimir */}
+
 {appt.status!=='pendiente' &&
 <button
 onClick={()=>printServiceOrder(appt)}
-className="p-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700
-hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/40
-hover:scale-110 transition-all duration-200"
+className={`p-2 rounded-lg border transition-all duration-200 hover:scale-110 ${
+  theme === "light"
+    ? "bg-white text-slate-500 border-slate-200 hover:bg-blue-100"
+    : "bg-slate-800 text-slate-400 border-slate-700"
+}`}
 title="Reimprimir"
 >
 <Printer size={16}/>
 </button>}
 
-{/* Reset */}
+
 <button
 onClick={()=>updateStatus(appt.id,'pendiente')}
-className="p-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700
-hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/40
-hover:scale-110 transition-all duration-200"
+className={`p-2 rounded-lg border transition-all duration-200 hover:scale-110 ${
+  theme === "light"
+    ? "bg-white text-slate-500 border-slate-200 hover:bg-amber-100"
+    : "bg-slate-800 text-slate-400 border-slate-700"
+}`}
 title="Resetear"
 >
 <RotateCcw size={16}/>
 </button>
 
-{/* Reprogramar */}
+
 <button
 onClick={()=>openRescheduleModal(appt,'admin')}
-className="p-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700
-hover:bg-violet-600/20 hover:text-violet-400 hover:border-violet-500/40
-hover:scale-110 transition-all duration-200"
+className={`p-2 rounded-lg border transition-all duration-200 hover:scale-110 ${
+  theme === "light"
+    ? "bg-white text-slate-500 border-slate-200 hover:bg-violet-100"
+    : "bg-slate-800 text-slate-400 border-slate-700"
+}`}
 title="Reprogramar"
 >
 <Edit size={16}/>
 </button>
 
-{/* Eliminar */}
+
 <button
 onClick={()=>handleDeleteAppointment(appt.id)}
-className="p-2 rounded-lg bg-slate-800 text-slate-400 border border-slate-700
-hover:bg-red-600/20 hover:text-red-400 hover:border-red-500/40
-hover:scale-110 transition-all duration-200"
+className={`p-2 rounded-lg border transition-all duration-200 hover:scale-110 ${
+  theme === "light"
+    ? "bg-white text-slate-500 border-slate-200 hover:bg-red-100"
+    : "bg-slate-800 text-slate-400 border-slate-700"
+}`}
 title="Eliminar"
 >
 <Trash2 size={16}/>
@@ -1723,9 +1928,9 @@ title="Eliminar"
 
 </div>
 
-
 </div>
 </Card>
+
 ))}
 </div>
 ) : dashboardMode === 'week' ? (
@@ -1801,7 +2006,10 @@ title="Eliminar"
 
     <table className="w-full text-sm">
 
-      <thead className="bg-slate-800 text-slate-400">
+      <thead className={theme === "light"
+  ? "bg-slate-100 text-slate-600"
+  : "bg-slate-800 text-slate-400"}
+>
         <tr>
           <th className="p-3">Orden</th>
           <th>Fecha</th>
@@ -1813,7 +2021,11 @@ title="Eliminar"
         </tr>
       </thead>
 
-    <tbody className="divide-y divide-slate-800 text-slate-200">
+    <tbody className={
+  theme === "light"
+  ? "divide-y divide-slate-200 text-slate-800"
+  : "divide-y divide-slate-800 text-slate-200"
+}>
 
 
         {filteredAppts.map(a => (
@@ -1976,7 +2188,7 @@ title="Eliminar"
     {/* ===== MODAL EDITAR ===== */}
     {editingClient && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
-        <Card className="w-full max-w-md relative bg-slate-900 border-slate-700">
+        <Card theme={theme} className="w-full max-w-md relative bg-slate-900 border-slate-700">
           <button onClick={()=>setEditingClient(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
 
           <h3 className="text-xl font-bold text-white mb-4">Editar Cliente</h3>
@@ -1994,7 +2206,7 @@ title="Eliminar"
     {/* ===== MODAL HISTORIAL ===== */}
     {clientHistoryModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
-        <Card className="w-full max-w-4xl relative bg-slate-900 border-slate-700 max-h-[80vh] overflow-hidden flex flex-col">
+        <Card theme={theme} className="w-full max-w-4xl relative bg-slate-900 border-slate-700 max-h-[80vh] overflow-hidden flex flex-col">
 
           <button onClick={()=>setClientHistoryModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button>
 
@@ -2064,15 +2276,15 @@ title="Eliminar"
               </div>
 
               <div className="flex gap-2 mt-4">
-                <Button variant="ghost" onClick={()=>sendWhatsApp(client.phone,client.name,client.bikeModel||'bici')}>
+                <Button variant="ghost" theme={theme} onClick={()=>sendWhatsApp(client.phone,client.name,client.bikeModel||'bici')}>
                   <MessageCircle size={14}/>
                 </Button>
 
-                <Button variant="ghost" onClick={()=>setClientHistoryModal(client)}>
+                <Button variant="ghost" theme={theme} onClick={()=>setClientHistoryModal(client)}>
                   <FileClock size={14}/>
                 </Button>
 
-                <Button variant="ghost" onClick={()=>setEditingClient(client)}>
+                <Button variant="ghost" theme={theme} onClick={()=>setEditingClient(client)}>
                   <Edit size={14}/>
                 </Button>
               </div>
@@ -2108,7 +2320,7 @@ title="Eliminar"
                 <td className="text-center">{services.length}</td>
                 <td>{last?last.toLocaleDateString():'-'}</td>
                 <td>
-                  <Button variant="ghost" onClick={()=>setClientHistoryModal(client)}><FileClock size={14}/></Button>
+                  <Button variant="ghost" theme={theme} onClick={()=>setClientHistoryModal(client)}><FileClock size={14}/></Button>
                 </td>
               </tr>
             );
@@ -2122,11 +2334,11 @@ title="Eliminar"
 )}
 
 
-        {subView === 'mechanics-mgmt' && appUser.isAdmin && <div className="max-w-3xl mx-auto"><Card className="mb-8 border-blue-500/30 shadow-blue-900/10"><div className="flex items-center gap-3 mb-6"><div className="bg-blue-500/20 p-3 rounded-full"><Shield size={24} className="text-blue-400"/></div><h3 className="text-2xl font-bold text-white">Gestión de {activeIndustry.staffLabel}s</h3></div><form onSubmit={addMechanic} className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 mb-4"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre</label><input required value={newMechName} onChange={e=>setNewMechName(e.target.value)} className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" placeholder="Nombre"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">DNI (Usuario)</label><input required value={newMechDni} onChange={e=>setNewMechDni(e.target.value)} type="number" className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" placeholder="DNI"/></div><div className="space-y-1 relative"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contraseña</label><input required value={newMechPassword} onChange={e=>setNewMechPassword(e.target.value)} type="text" className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" /><div className="absolute top-8 right-3 text-xs text-slate-600 select-none">Default</div></div><div className="md:col-span-3 flex items-center justify-between pt-2"><div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"><input type="checkbox" checked={newMechIsAdmin} onChange={e=>setNewMechIsAdmin(e.target.checked)} className="rounded border-slate-700 bg-slate-800 text-blue-600 w-4 h-4"/><label className="text-sm text-slate-300 font-medium">¿Permisos de Admin?</label></div><Button type="submit" variant="admin" className="px-8"><Plus size={18}/> Crear Usuario</Button></div></form></Card><div className="space-y-3">{mechanics.map(m=><div key={m.id} className="flex justify-between items-center bg-slate-800/80 backdrop-blur-sm p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition"><div className="flex items-center gap-4"><div className={`p-3 rounded-full ${m.isAdmin?'bg-blue-500/20 text-blue-400':'bg-slate-700 text-slate-400'}`}>{m.isAdmin?<Shield size={20}/>:<Wrench size={20}/>}</div><div><p className="text-white font-bold flex items-center gap-2 text-lg">{m.name}{m.isAdmin && <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 uppercase tracking-wider font-bold">Admin</span>}</p><p className="text-sm text-slate-500 font-mono">DNI: {m.dni}</p></div></div><div className="flex gap-2"><Button variant="secondary" className="p-2.5 h-auto rounded-lg bg-slate-900 border-slate-800 hover:bg-slate-800" onClick={()=>triggerResetPassword(m.id, m.name)} title={`Resetear a ${GENERIC_PASS}`}><RotateCcw size={16}/></Button><Button variant="danger" className="p-2.5 h-auto rounded-lg" onClick={()=>triggerRemoveMechanic(m.id, m.name)}><Trash2 size={16}/></Button></div></div>)}</div></div>}
+        {subView === 'mechanics-mgmt' && appUser.isAdmin && <div className="max-w-3xl mx-auto"><Card theme={theme} className="mb-8 border-blue-500/30 shadow-blue-900/10"><div className="flex items-center gap-3 mb-6"><div className="bg-blue-500/20 p-3 rounded-full"><Shield size={24} className="text-blue-400"/></div><h3 className="text-2xl font-bold text-white">Gestión de {activeIndustry.staffLabel}s</h3></div><form onSubmit={addMechanic} className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 mb-4"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nombre</label><input required value={newMechName} onChange={e=>setNewMechName(e.target.value)} className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" placeholder="Nombre"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">DNI (Usuario)</label><input required value={newMechDni} onChange={e=>setNewMechDni(e.target.value)} type="number" className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" placeholder="DNI"/></div><div className="space-y-1 relative"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Contraseña</label><input required value={newMechPassword} onChange={e=>setNewMechPassword(e.target.value)} type="text" className="w-full bg-slate-950 text-white rounded-xl p-3 text-sm border border-slate-800 focus:border-blue-500 outline-none" /><div className="absolute top-8 right-3 text-xs text-slate-600 select-none">Default</div></div><div className="md:col-span-3 flex items-center justify-between pt-2"><div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"><input type="checkbox" checked={newMechIsAdmin} onChange={e=>setNewMechIsAdmin(e.target.checked)} className="rounded border-slate-700 bg-slate-800 text-blue-600 w-4 h-4"/><label className="text-sm text-slate-300 font-medium">¿Permisos de Admin?</label></div><Button type="submit" variant="admin" className="px-8"><Plus size={18}/> Crear Usuario</Button></div></form></Card><div className="space-y-3">{mechanics.map(m=><div key={m.id} className="flex justify-between items-center bg-slate-800/80 backdrop-blur-sm p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition"><div className="flex items-center gap-4"><div className={`p-3 rounded-full ${m.isAdmin?'bg-blue-500/20 text-blue-400':'bg-slate-700 text-slate-400'}`}>{m.isAdmin?<Shield size={20}/>:<Wrench size={20}/>}</div><div><p className="text-white font-bold flex items-center gap-2 text-lg">{m.name}{m.isAdmin && <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30 uppercase tracking-wider font-bold">Admin</span>}</p><p className="text-sm text-slate-500 font-mono">DNI: {m.dni}</p></div></div><div className="flex gap-2"><Button variant="secondary" className="p-2.5 h-auto rounded-lg bg-slate-900 border-slate-800 hover:bg-slate-800" onClick={()=>triggerResetPassword(m.id, m.name)} title={`Resetear a ${GENERIC_PASS}`}><RotateCcw size={16}/></Button><Button variant="danger" className="p-2.5 h-auto rounded-lg" onClick={()=>triggerRemoveMechanic(m.id, m.name)}><Trash2 size={16}/></Button></div></div>)}</div></div>}
         
         {subView === 'config' && <div className="max-w-2xl mx-auto space-y-8">
             {/* --- SELECTOR DE INDUSTRIA (NUEVO) --- */}
-            <Card className="border-blue-500/30 shadow-blue-900/10">
+            <Card theme={theme} className="border-blue-500/30 shadow-blue-900/10">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <Store size={24} className="text-blue-400"/> Rubro del Negocio
@@ -2155,7 +2367,7 @@ title="Eliminar"
             </Card>
 
             {/* --- CONFIGURACIÓN DE AGENDA --- */}
-            <Card className="mt-8 border-purple-500/30 shadow-purple-900/10">
+            <Card theme={theme} className="mt-8 border-purple-500/30 shadow-purple-900/10">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-xl font-bold text-white flex items-center gap-2"><Clock size={24} className="text-purple-400"/> Configuración de Horarios</h3>
                 </div>
@@ -2177,7 +2389,7 @@ title="Eliminar"
                 </div>
             </Card>
             
-            <Card>
+            <Card theme={theme}>
                 <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4"><h3 className="text-xl font-bold text-white flex items-center gap-2"><Settings size={24} className="text-slate-400"/> Configuración del {activeIndustry.placeLabel}</h3>{configSuccess && <span className="text-emerald-400 text-sm font-bold animate-in fade-in bg-emerald-900/20 px-3 py-1 rounded-full border border-emerald-500/20">¡Cambios Guardados!</span>}</div>
                 <div className="space-y-8">
                     <div>
@@ -2190,7 +2402,7 @@ title="Eliminar"
                 </div>
             </Card>
 
-            <Card>
+            <Card theme={theme}>
                 <div className="flex justify-between items-center mb-6"><h3 className="text-xl font-bold text-white flex items-center gap-2"><CalendarX size={24} className="text-red-400"/> Gestión de Calendario</h3></div>
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mb-6">
                     <p className="text-sm text-slate-400 mb-4">Bloquea fechas específicas (feriados, vacaciones) para que los clientes no puedan reservar.</p>
@@ -2221,7 +2433,7 @@ title="Eliminar"
                 <button onClick={() => setStatsPeriod('month')} className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${statsPeriod === 'month' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Mes</button>
                 <button onClick={() => setStatsPeriod('all')} className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${statsPeriod === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Histórico</button>
             </div>
-            <Card><h3 className="text-white font-bold mb-6 flex items-center gap-2 text-lg"><BarChart3 size={24} className="text-blue-500"/> Reparaciones por {activeIndustry.staffLabel}</h3><div className="space-y-6">{mechanics.filter(m=>!m.isAdmin).map(m=>{const count=getStatsAppointments().filter(a=>a.mechanicId===m.dni&&a.status==='listo').length; const active=appointments.filter(a=>a.mechanicId===m.dni&&a.status==='en-proceso').length; return <div key={m.id} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800"><div className="flex justify-between items-center text-sm text-slate-300 mb-2 font-medium"><span>{m.name}</span><div className="flex gap-3"><span className="text-blue-400 text-xs bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/30">{active} Activas</span><span className="text-emerald-400 font-bold">{count} Finalizadas</span></div></div><div className="h-3 bg-slate-700/50 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-1000" style={{width:`${Math.min((count/20)*100,100)}%`}}></div></div></div>})}</div></Card><Card><h3 className="text-white font-bold mb-6 flex items-center gap-2 text-lg"><Timer size={24} className="text-emerald-500"/> Eficiencia</h3><div className="flex flex-col items-center justify-center py-10"><div className="text-6xl font-bold text-white mb-2 tracking-tighter">{(() => { const finished = getStatsAppointments().filter(a => a.status === 'listo' && a.startedAt && a.finishedAt); if (!finished.length) return '0h'; const totalMs = finished.reduce((acc, curr) => acc + (new Date(curr.finishedAt) - new Date(curr.startedAt)), 0); const avgMs = totalMs / finished.length; const hrs = Math.floor(avgMs / 3600000); return `${hrs}h ${Math.round((avgMs % 3600000) / 60000)}m`; })()}</div><p className="text-slate-400 text-sm bg-slate-900 px-3 py-1 rounded-full border border-slate-800">Tiempo promedio en {activeIndustry.placeLabel}</p></div></Card></div>}
+            <Card theme={theme}><h3 className="text-white font-bold mb-6 flex items-center gap-2 text-lg"><BarChart3 size={24} className="text-blue-500"/> Reparaciones por {activeIndustry.staffLabel}</h3><div className="space-y-6">{mechanics.filter(m=>!m.isAdmin).map(m=>{const count=getStatsAppointments().filter(a=>a.mechanicId===m.dni&&a.status==='listo').length; const active=appointments.filter(a=>a.mechanicId===m.dni&&a.status==='en-proceso').length; return <div key={m.id} className="bg-slate-900/50 p-3 rounded-xl border border-slate-800"><div className="flex justify-between items-center text-sm text-slate-300 mb-2 font-medium"><span>{m.name}</span><div className="flex gap-3"><span className="text-blue-400 text-xs bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/30">{active} Activas</span><span className="text-emerald-400 font-bold">{count} Finalizadas</span></div></div><div className="h-3 bg-slate-700/50 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-1000" style={{width:`${Math.min((count/20)*100,100)}%`}}></div></div></div>})}</div></Card><Card theme={theme}><h3 className="text-white font-bold mb-6 flex items-center gap-2 text-lg"><Timer size={24} className="text-emerald-500"/> Eficiencia</h3><div className="flex flex-col items-center justify-center py-10"><div className="text-6xl font-bold text-white mb-2 tracking-tighter">{(() => { const finished = getStatsAppointments().filter(a => a.status === 'listo' && a.startedAt && a.finishedAt); if (!finished.length) return '0h'; const totalMs = finished.reduce((acc, curr) => acc + (new Date(curr.finishedAt) - new Date(curr.startedAt)), 0); const avgMs = totalMs / finished.length; const hrs = Math.floor(avgMs / 3600000); return `${hrs}h ${Math.round((avgMs % 3600000) / 60000)}m`; })()}</div><p className="text-slate-400 text-sm bg-slate-900 px-3 py-1 rounded-full border border-slate-800">Tiempo promedio en {activeIndustry.placeLabel}</p></div></Card></div>}
     </main></div>
   );
 }
