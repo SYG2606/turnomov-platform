@@ -1,3 +1,4 @@
+/* --- CONFIGURACIÓN BASE --- */
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -5,6 +6,7 @@
   text-align: center;
 }
 
+/* --- LOGOS Y ANIMACIONES --- */
 .logo {
   height: 6em;
   padding: 1.5em;
@@ -19,12 +21,8 @@
 }
 
 @keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -33,10 +31,54 @@
   }
 }
 
+/* --- UTILIDADES --- */
 .card {
   padding: 2em;
 }
 
 .read-the-docs {
   color: #888;
+}
+
+/* --- FIXES DE INTERFAZ MULTI-TENANT (MODO OSCURO) --- */
+
+/* 1. Unificación de Selectores y Dropdowns */
+select option {
+    background-color: #ffffff !important;
+    color: #1e293b !important; /* slate-800 */
+    padding: 10px;
+}
+
+/* Aplicar cuando el contenedor padre tenga la clase .dark */
+.dark select option,
+[data-theme='dark'] select option {
+    background-color: #0f172a !important; /* slate-950 */
+    color: #ffffff !important;
+}
+
+/* 2. Fix para Inputs de Fecha (Calendario nativo) */
+/* Esto asegura que el icono del calendario y el texto sean visibles */
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1); /* Invierte el color del icono del calendario a blanco */
+    cursor: pointer;
+}
+
+/* 3. Limpieza de Focus nativo */
+select:focus, input:focus {
+    outline: none;
+}
+
+/* 4. Estilo para Scrollbars en Modo Oscuro (Opcional, mejora mucho la UX) */
+.dark ::-webkit-scrollbar {
+    width: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
 }

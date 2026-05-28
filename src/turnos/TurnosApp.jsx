@@ -1,5 +1,5 @@
 // src/turnos/TurnosApp.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import bcrypt from 'bcryptjs'; 
 
 
@@ -125,6 +125,7 @@ const themeClasses = {
   }
 };
 
+
 const GENERIC_PASS = "Turno2026";
 const formatDateForQuery = (d) => d.toISOString().split('T')[0];
 const formatDisplayDate = (d) => {
@@ -193,19 +194,68 @@ const Card = ({ children, className = '', onClick, theme = "dark" }) => {
   );
 };
 const Badge = ({ status, labels }) => {
-  const styles = {
-    'pendiente': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-    'recibido': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    'en-proceso': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    'listo': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  const styles = {
+    'pendiente': 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+    'recibido': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'en-proceso': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'listo': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     'retirado': 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+  };
 
-  };
-  const defaultLabels = { 'pendiente': 'Pendiente', 'recibido': 'Recibido', 'en-proceso': 'En Proceso', 'listo': 'Listo' };
-  const currentLabels = labels || defaultLabels;
-  const statusKeyMap = { 'pendiente': 'pending', 'recibido': 'received', 'en-proceso': 'process', 'listo': 'ready', 'retirado': 'delivered' };
-  const displayText = currentLabels[statusKeyMap[status]] || status;
-  return <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${styles[status] || styles['pendiente']}`}>{displayText}</span>;
+  const defaultLabels = { 'pendiente': 'Pendiente', 'recibido': 'Recibido', 'en-proceso': 'En Proceso', 'listo': 'Listo' };
+  const currentLabels = labels || defaultLabels;
+  const statusKeyMap = { 'pendiente': 'pending', 'recibido': 'received', 'en-proceso': 'process', 'listo': 'ready', 'retirado': 'delivered' };
+  const displayText = currentLabels[statusKeyMap[status]] || status;
+
+  return <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${styles[status] || styles['pendiente']}`}>{displayText}</span>;
+};
+
+// --- COMPONENTE MULTISELECT (AHORA ESTÁ BIEN UBICADO AFUERA) ---
+const MultiSelectFilter = ({ label, options, selectedValues, onToggle, theme }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  return (
+    <div className="relative space-y-1">
+      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full bg-transparent border-b p-1 text-sm text-left flex justify-between items-center transition-colors ${
+          theme === 'light' ? 'border-slate-200 text-slate-800' : 'border-slate-700 text-white'
+        }`}
+      >
+        <span className="truncate whitespace-nowrap">
+          {selectedValues.length === 0 ? "Todos" : `${selectedValues.length} seleccionados`}
+        </span>
+        <Filter size={12} className={selectedValues.length > 0 ? "text-blue-500" : "opacity-40"} />
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className={`absolute z-50 mt-1 w-64 max-h-60 overflow-y-auto rounded-xl border shadow-2xl p-2 animate-in fade-in zoom-in duration-150 ${
+            theme === 'light' ? 'bg-white border-slate-200 shadow-xl' : 'bg-slate-900 border-slate-700 shadow-2xl'
+          }`}>
+            {options.map((opt) => (
+              <label key={opt.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                theme === 'light' ? 'hover:bg-slate-50' : 'hover:bg-slate-800'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={selectedValues.includes(opt.id)}
+                  onChange={() => onToggle(opt.id)}
+                  className="w-4 h-4 rounded border-slate-500 text-blue-600"
+                />
+                <span className={`text-sm ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'}`}>
+                  {opt.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 };
 const capitalizeName = (str = '') =>
   str
@@ -253,6 +303,19 @@ const [theme, setTheme] = useState(() => {
   const saved = localStorage.getItem("turnos_theme");
   return saved || "light";
 });
+//---------------------------------------------------
+const [filters, setFilters] = useState({
+  startDate: '',
+  endDate: '',
+  services: [], // Ahora es array
+  statuses: [], // Nuevo y array
+  mechanics: [], // Ahora es array
+  searchTerm: ''
+});
+
+// Estado para controlar qué dropdown está abierto
+const [openDropdown, setOpenDropdown] = useState(null);
+const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
 useEffect(() => {
   localStorage.setItem("turnos_theme", theme);
@@ -335,6 +398,7 @@ const toggleTheme = () => {
   const [receptionModal, setReceptionModal] = useState(null); 
   const [confirmModal, setConfirmModal] = useState(null);
   const [rescheduleModal, setRescheduleModal] = useState(null);
+  const [selectedApptModal, setSelectedApptModal] = useState(null);
 
   // Filters & Stats
   const [searchTerm, setSearchTerm] = useState('');
@@ -551,32 +615,133 @@ useEffect(() => {
   };
 }, [user, tenant, appId]);
 
+// Sustituye tu bloque actual por esta versión optimizada y segura
+const filteredAppts = useMemo(() => {
+  if (!appointments || appointments.length === 0) return [];
 
-const filteredAppts = appointments
-  .filter(a => {
-    const term = searchTerm.toLowerCase();
+  const term = filters.searchTerm?.toLowerCase().trim() || '';
 
-    const orderStr = a.orderId ? a.orderId.toString() : '';
+  return appointments
+    .filter((appt) => {
+      // 1. Búsqueda Global (ID, Cliente, DNI, Modelo)
+      const matchesSearch = !term || [
+        appt.orderId?.toString(),
+        appt.clientName,
+        appt.clientDni,
+        appt.bikeModel
+      ].some(field => field?.toLowerCase().includes(term));
 
-    const match =
-      orderStr.includes(term) ||
-      (a.clientName || '').toLowerCase().includes(term) ||
-      (a.bikeModel || '').toLowerCase().includes(term) ||
-      (a.clientDni || '').includes(term);
+      if (!matchesSearch) return false;
 
-    const status = statusFilter === 'all' || a.status === statusFilter;
+      // 2. MULTISELECCIÓN: Estado (Si el array tiene algo, comparamos con .includes)
+      // Nota: filters.statuses debe ser un array ahora
+      if (filters.statuses?.length > 0 && !filters.statuses.includes(appt.status)) {
+        return false;
+      }
 
-    let date = true;
-    if (dateFilterStart) {
-      date = new Date(a.date) >= new Date(dateFilterStart);
-    }
+      // 3. MULTISELECCIÓN: Servicio
+      if (filters.services?.length > 0 && !filters.services.includes(appt.serviceType)) {
+        return false;
+      }
 
-    return match && status && date;
-  })
+      // 4. MULTISELECCIÓN: Responsable (Mecánico)
+      if (filters.mechanics?.length > 0 && !filters.mechanics.includes(appt.mechanicId)) {
+        return false;
+      }
+
+      // 5. Rango de Fechas
+      if (filters.startDate || filters.endDate) {
+        const apptTime = new Date(appt.date).getTime();
+        if (filters.startDate) {
+          const start = new Date(`${filters.startDate}T00:00:00`).getTime();
+          if (apptTime < start) return false;
+        }
+        if (filters.endDate) {
+          const end = new Date(`${filters.endDate}T23:59:59`).getTime();
+          if (apptTime > end) return false;
+        }
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const timeA = new Date(a.date).getTime() || 0;
+      const timeB = new Date(b.date).getTime() || 0;
+      return timeB - timeA; // Más recientes arriba
+    });
+}, [appointments, filters]);
+// 2. Función de Impresión Profesional (SaaS Ready)
+const printAdvancedReport = () => {
+  const win = window.open('', '_blank');
+  
+  // Estilos base para reporte A4
+  const styles = `
+    <style>
+      @media print { @page { size: landscape; margin: 1cm; } }
+      body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #334155; font-size: 12px; }
+      .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #f8fafc; text-align: left; padding: 12px; border: 1px solid #e2e8f0; font-size: 10px; text-transform: uppercase; }
+      td { padding: 10px; border: 1px solid #e2e8f0; }
+      .badge { padding: 4px 8px; border-radius: 9999px; font-size: 10px; font-weight: bold; background: #f1f5f9; }
+      .footer { margin-top: 20px; text-align: right; font-weight: bold; font-size: 14px; }
+    </style>
+  `;
+
+  const content = `
+    <html>
+      <head>${styles}</head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 style="margin:0; color:#1e293b;">${shopConfig.shopName}</h1>
+            <p style="margin:2px 0;">Reporte de Turnos Filtrados</p>
+          </div>
+          <div style="text-align:right">
+            <p>Generado: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+            <p>Registros: ${filteredAppts.length}</p>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Orden</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>DNI</th>
+              <th>${activeIndustry.itemLabel}</th>
+              <th>Servicio</th>
+              <th>Estado</th>
+              <th>Responsable</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredAppts.map(a => `
+              <tr>
+                <td>#${a.orderId}</td>
+                <td>${new Date(a.date).toLocaleDateString()}</td>
+                <td>${a.clientName}</td>
+                <td>${a.clientDni}</td>
+                <td>${a.bikeModel}</td>
+                <td>${a.serviceType}</td>
+                <td><span class="badge">${(activeIndustry.statusLabels[a.status] || a.status).toUpperCase()}</span></td>
+                <td>${a.mechanicName || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Total de servicios: ${filteredAppts.length}</div>
+      </body>
+    </html>
+  `;
+
+  win.document.write(content);
+  win.document.close();
+  win.print();
+};
 
 
-  // 👇 ORDEN REAL POR FECHA + HORA
-  .sort((a, b) => new Date(a.date) - new Date(b.date));
+  
 
 
   const handleLogout = () => {
@@ -1685,7 +1850,151 @@ safeTimeout(() => {
         )}
     </main></div>
   );
+{/* ================= MODAL DETALLE COMPLETO DE TURNO ================= */}
+{selectedApptModal && (
+  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
+    <Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl overflow-hidden">
+      
+      {/* Botón Cerrar */}
+      <button 
+        onClick={() => setSelectedApptModal(null)} 
+        className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+      >
+        <XCircle size={24}/>
+      </button>
 
+      {/* Indicador de Estado Lateral */}
+      <div className={`absolute top-0 left-0 w-1.5 h-full ${
+        selectedApptModal.status === 'listo' ? 'bg-emerald-500' :
+        selectedApptModal.status === 'en-proceso' ? 'bg-blue-500' :
+        selectedApptModal.status === 'recibido' ? 'bg-amber-500' : 'bg-slate-600'
+      }`}></div>
+
+      <div className="pl-2">
+        {/* Cabecera */}
+        <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
+          <div>
+            <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded">
+              ORDEN #{selectedApptModal.orderId}
+            </span>
+            <h3 className="text-2xl font-bold text-white mt-2 tracking-tight">
+              {selectedApptModal.bikeModel}
+            </h3>
+          </div>
+          <Badge status={selectedApptModal.status} labels={activeIndustry.statusLabels}/>
+        </div>
+
+        {/* Información en Cuadrícula */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Cliente</p>
+            <p className="text-sm text-white font-medium">{selectedApptModal.clientName}</p>
+            <p className="text-xs text-slate-400 font-mono">DNI: {selectedApptModal.clientDni}</p>
+            <p className="text-xs text-slate-400">Tel: {selectedApptModal.clientPhone}</p>
+          </div>
+
+          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Servicio Asignado</p>
+            <p className="text-sm text-blue-400 font-bold">{selectedApptModal.serviceType}</p>
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+              <Calendar size={12}/> {new Date(selectedApptModal.date).toLocaleDateString()}
+            </p>
+            {selectedApptModal.mechanicName && (
+              <p className="text-xs text-emerald-400 mt-1 font-semibold">
+                🔧 {selectedApptModal.mechanicName}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Notas / Observaciones */}
+        <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 mb-6">
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Notas / Diagnóstico</p>
+          <p className="text-xs text-slate-300 italic whitespace-pre-wrap">
+            {selectedApptModal.notes || 'Sin observaciones registradas.'}
+          </p>
+        </div>
+
+        {/* Botón de Acción Principal (Cambio de Estado Rápido) */}
+        <div className="mb-4">
+          {selectedApptModal.status === 'pendiente' && (
+            <Button variant="secondary" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+              onClick={() => {
+                setReceptionModal({appt: selectedApptModal, bikeModel: selectedApptModal.bikeModel, serviceType: selectedApptModal.serviceType, notes: selectedApptModal.notes || ''});
+                setSelectedApptModal(null);
+              }}>
+              <FileText size={16}/> Recepcionar Unidad
+            </Button>
+          )}
+
+          {selectedApptModal.status === 'recibido' && (
+            <Button variant="admin" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+              onClick={() => { updateStatus(selectedApptModal.id, 'en-proceso'); setSelectedApptModal(null); }}>
+              <Wrench size={16}/> Iniciar Reparación
+            </Button>
+          )}
+
+          {selectedApptModal.status === 'en-proceso' && (
+            <Button variant="success" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+              onClick={() => { updateStatus(selectedApptModal.id, 'listo'); setSelectedApptModal(null); }}>
+              <CheckCircle size={16}/> Finalizar Trabajo
+            </Button>
+          )}
+
+          {selectedApptModal.status === 'listo' && (
+            <div className="flex flex-col gap-2">
+              <Button variant="whatsapp" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                onClick={() => sendWhatsApp(selectedApptModal.clientPhone, selectedApptModal.clientName, selectedApptModal.bikeModel, 'listo')}>
+                <MessageCircle size={16}/> Enviar Alerta de Retiro (WhatsApp)
+              </Button>
+              <Button variant="success" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                onClick={() => { updateStatus(selectedApptModal.id, 'retirado', {deliveredAt: new Date().toISOString()}); setSelectedApptModal(null); }}>
+                <CheckCircle size={16}/> Marcar como Entregado
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Barra de Herramientas Secundaria (Iconos rápidos de administración) */}
+        <div className="flex justify-between items-center pt-4 border-t border-slate-800 gap-2">
+          <button
+            onClick={() => { sendWhatsApp(selectedApptModal.clientPhone, selectedApptModal.clientName, selectedApptModal.bikeModel, selectedApptModal.status); }}
+            className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
+            title="Chat de consulta"
+          >
+            <MessageCircle size={14}/> WhatsApp
+          </button>
+
+          {selectedApptModal.status !== 'pendiente' && (
+            <button
+              onClick={() => { printServiceOrder(selectedApptModal); }}
+              className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
+              title="Ticket térmico"
+            >
+              <Printer size={14}/> Ticket
+            </button>
+          )}
+
+          <button
+            onClick={() => { openRescheduleModal(selectedApptModal, 'admin'); setSelectedApptModal(null); }}
+            className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
+          >
+            <Edit size={14}/> Re-agendar
+          </button>
+
+          <button
+            onClick={() => { handleDeleteAppointment(selectedApptModal.id); setSelectedApptModal(null); }}
+            className="p-2 bg-red-950/20 border border-red-900/30 text-red-400 rounded-xl hover:bg-red-900/30 transition"
+            title="Eliminar registro"
+          >
+            <Trash2 size={14}/>
+          </button>
+        </div>
+
+      </div>
+    </Card>
+  </div>
+)}
   // --- VISTA ADMIN (SUB-VIEWS) ---
   return (
     <div className={`min-h-screen pb-20 transition-colors duration-300 ${themeClasses[theme].app}`}><Header /><div className="max-w-7xl mx-auto px-4 mt-6 border-b border-slate-800 flex flex-wrap gap-2 overflow-x-auto pb-1"><button onClick={()=>setSubView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${subView==='dashboard'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}>Panel de Turnos</button>{appUser.isAdmin && <><button onClick={()=>setSubView('clients')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='clients'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Users size={16}/> Clientes</button><button onClick={()=>setSubView('stats')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='stats'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><BarChart3 size={16}/> Estadísticas</button><button onClick={()=>setSubView('config')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='config'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Settings size={16}/> Config</button><button onClick={()=>setSubView('mechanics-mgmt')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='mechanics-mgmt'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Shield size={16}/> Staff</button></>}</div>
@@ -1715,69 +2024,148 @@ safeTimeout(() => {
             {receptionModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setReceptionModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-2xl font-bold text-white mb-2">Recepción de {activeIndustry.itemLabel}</h3><div className="bg-blue-900/20 border border-blue-500/20 p-4 rounded-xl mb-6 flex items-center gap-3"><User className="text-blue-400"/><div className="text-sm"><p className="text-blue-200 font-bold">{receptionModal.appt.clientName}</p><p className="text-blue-400/60">DNI: {receptionModal.appt.clientDni}</p></div></div><form onSubmit={handleReceptionConfirm} className="space-y-5"><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{activeIndustry.itemLabel} (Verificar)</label><input value={receptionModal.bikeModel} onChange={e=>setReceptionModal({...receptionModal, bikeModel:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition"/></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Servicio a Realizar</label><select value={receptionModal.serviceType} onChange={e=>setReceptionModal({...receptionModal, serviceType:e.target.value})} className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition">{availableServices.map(s=><option key={s} value={s}>{s}</option>)}</select></div><div className="space-y-1"><label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Notas / Diagnóstico Visual</label><textarea value={receptionModal.notes} onChange={e=>setReceptionModal({...receptionModal, notes:e.target.value})} rows="3" className="w-full bg-slate-950 border-slate-800 border rounded-xl p-3.5 text-white outline-none focus:border-blue-500 transition resize-none" placeholder="Estado general..."/></div><Button type="submit" className="w-full py-4 text-lg mt-2">Confirmar e Imprimir Orden</Button></form></Card></div>}
             
             {/* --- SECTOR DE FILTROS Y BUSQUEDA --- */}
-<div className={`mb-8 p-4 rounded-2xl border grid grid-cols-1 md:grid-cols-12 gap-4 shadow-sm transition-colors ${
-    theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/50 border-slate-800'
-}`}>
-    <div className="md:col-span-4 relative">
-        <Search className="absolute left-4 top-3.5 text-slate-500" size={20}/>
-        <input 
-            placeholder={`Buscar ID, Cliente, ${activeIndustry.itemLabel}...`} 
-            value={searchTerm} 
-            onChange={e=>setSearchTerm(e.target.value)} 
-            className={`w-full border rounded-xl pl-12 p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400' : 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-600'
-            }`}
-        />
-    </div>
-    
-    <div className="md:col-span-3">
-        <select 
-            value={statusFilter} 
-            onChange={e=>setStatusFilter(e.target.value)} 
-            className={`w-full border rounded-xl p-3 outline-none cursor-pointer ${
-                theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-950 border-slate-800 text-white'
-            }`}
-        >
-            <option value="all">Todos los Estados</option>
-            <option value="pendiente">Pendientes</option>
-            <option value="recibido">En Espera ({activeIndustry.placeLabel})</option>
-            <option value="en-proceso">En Proceso</option>
-            <option value="listo">Entregado</option>
-        </select>
-    </div>
-
-    <div className="md:col-span-3 flex gap-2">
-        {[
-            { id: 'list', icon: List },
-            { id: 'board', icon: Layout },
-            { id: 'rows', icon: FileText },
-            { id: 'week', icon: Calendar }
-        ].map((mode) => (
-            <button 
-                key={mode.id}
-                onClick={() => setDashboardMode(mode.id)} 
-                className={`flex-1 flex items-center justify-center rounded-xl transition-all duration-200 ${
-                    dashboardMode === mode.id
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                        : theme === 'light' 
-                            ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' 
-                            : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white'
+{/* --- PANEL DE CONTROL: BUSQUEDA Y FILTROS AVANZADOS --- */}
+{/* --- PANEL DE CONTROL: BUSQUEDA Y MULTI-FILTROS ESTILO EXCEL --- */}
+<div className="space-y-4 mb-8">
+    {/* Fila Superior: Búsqueda Global y Modos de Vista */}
+    <div className={`p-4 rounded-2xl border grid grid-cols-1 md:grid-cols-12 gap-4 shadow-sm transition-all ${
+        theme === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/50 border-slate-800'
+    }`}>
+        <div className="md:col-span-6 relative">
+            <Search className="absolute left-4 top-3.5 text-slate-500" size={20}/>
+            <input 
+                placeholder={`Buscar ID, Cliente, ${activeIndustry.itemLabel}...`} 
+                value={filters.searchTerm} 
+                onChange={e => setFilters({...filters, searchTerm: e.target.value})} 
+                className={`w-full border rounded-xl pl-12 p-3 outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                    theme === 'light' ? 'bg-slate-50 border-slate-200 text-slate-800' : 'bg-slate-950 border-slate-800 text-white'
                 }`}
+            />
+        </div>
+
+        <div className="md:col-span-4 flex gap-2">
+            {[
+                { id: 'list', icon: List, label: 'Cards' },
+                { id: 'rows', icon: FileText, label: 'Tabla' },
+                { id: 'week', icon: Calendar, label: 'Semana' }
+            ].map((mode) => (
+                <button 
+                    key={mode.id}
+                    onClick={() => setDashboardMode(mode.id)} 
+                    className={`flex-1 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                        dashboardMode === mode.id
+                            ? 'bg-blue-600 text-white shadow-lg'
+                            : theme === 'light' 
+                                ? 'bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100' 
+                                : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700'
+                    }`}
+                >
+                    <mode.icon size={20}/>
+                </button>
+            ))}
+        </div>
+
+        <div className="md:col-span-2">
+            <Button 
+                variant="secondary" 
+                theme={theme}
+                onClick={printAdvancedReport} 
+                className="w-full h-full flex gap-2 items-center justify-center"
             >
-                <mode.icon size={20}/>
-            </button>
-        ))}
+                <Printer size={18}/> PDF
+            </Button>
+        </div>
     </div>
 
-    <div className="md:col-span-2">
-        <Button 
-            variant="secondary" 
-            theme={theme}
-            onClick={printList} 
-            className="w-full h-full flex gap-2 items-center justify-center"
-        >
-            <Printer size={18}/> Reporte
-        </Button>
+   {/* Fila Inferior: Filtros Multi-selección Estilo Excel */}
+    <div className={`p-5 rounded-2xl border transition-all duration-300 ${
+        theme === 'light' ? 'bg-white border-slate-200 shadow-sm' : 'bg-slate-900/50 border-slate-800'
+    }`}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            
+            {/* Rango de Fechas - Desde */}
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Desde</label>
+                <input 
+                    type="date" 
+                    value={filters.startDate} 
+                    onChange={e => setFilters({...filters, startDate: e.target.value})} 
+                    className={`w-full bg-transparent border-b p-1 text-sm outline-none focus:border-blue-500 transition-colors ${
+                        theme === 'light' ? 'border-slate-200 text-slate-800' : 'border-slate-700 text-white'
+                    }`}
+                />
+            </div>
+
+            {/* Rango de Fechas - Hasta */}
+            <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Hasta</label>
+                <input 
+                    type="date" 
+                    value={filters.endDate} 
+                    onChange={e => setFilters({...filters, endDate: e.target.value})} 
+                    className={`w-full bg-transparent border-b p-1 text-sm outline-none focus:border-blue-500 transition-colors ${
+                        theme === 'light' ? 'border-slate-200 text-slate-800' : 'border-slate-700 text-white'
+                    }`}
+                />
+            </div>
+
+            {/* MULTI-SELECT: ESTADOS */}
+            <MultiSelectFilter 
+                label="Estado"
+                theme={theme}
+                options={Object.entries(activeIndustry.statusLabels).map(([id, label]) => {
+                    const map = { pending: 'pendiente', received: 'recibido', process: 'en-proceso', ready: 'listo', delivered: 'retirado' };
+                    return { id: map[id] || id, label };
+                })}
+                selectedValues={filters.statuses}
+                onToggle={(id) => {
+                    const statuses = filters.statuses.includes(id) 
+                        ? filters.statuses.filter(v => v !== id) 
+                        : [...filters.statuses, id];
+                    setFilters({...filters, statuses});
+                }}
+            />
+
+            {/* MULTI-SELECT: SERVICIOS */}
+            <MultiSelectFilter 
+                label="Servicio"
+                theme={theme}
+                options={availableServices.map(s => ({ id: s, label: s }))}
+                selectedValues={filters.services}
+                onToggle={(id) => {
+                    const services = filters.services.includes(id) 
+                        ? filters.services.filter(v => v !== id) 
+                        : [...filters.services, id];
+                    setFilters({...filters, services});
+                }}
+            />
+
+            {/* MULTI-SELECT: RESPONSABLE */}
+            <MultiSelectFilter 
+                label="Responsable"
+                theme={theme}
+                options={mechanics.map(m => ({ id: m.dni, label: m.name }))}
+                selectedValues={filters.mechanics}
+                onToggle={(id) => {
+                    const mechanicsList = filters.mechanics.includes(id) 
+                        ? filters.mechanics.filter(v => v !== id) 
+                        : [...filters.mechanics, id];
+                    setFilters({...filters, mechanics: mechanicsList});
+                }}
+            />
+
+        </div>
+
+        {/* Botón de Limpieza General */}
+        <div className="mt-4 flex justify-end">
+            <button 
+                type="button"
+                onClick={() => setFilters({startDate:'', endDate:'', services:[], statuses:[], mechanics:[], searchTerm:''})}
+                className="text-[10px] font-bold text-red-500 hover:text-red-600 transition-colors flex items-center gap-2 uppercase tracking-widest"
+            >
+                <RotateCcw size={12}/> Limpiar Filtros
+            </button>
+        </div>
     </div>
 </div>
 
@@ -1785,7 +2173,7 @@ safeTimeout(() => {
 {dashboardMode === 'list' ? (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         
-        {/* CARD NUEVO TURNO (CORREGIDA) */}
+        {/* CARD NUEVO TURNO */}
         <div className="group h-full">
             <Card
                 theme={theme}
@@ -1811,7 +2199,6 @@ safeTimeout(() => {
                 </h3>
             </Card>
         </div>
-
         {/* ... Resto del mapeo de filteredAppts ... */}
 
 {filteredAppts.map(appt => (
@@ -2122,7 +2509,13 @@ title="Eliminar"
                 }`}
               >
 
-            <td className="p-3 font-mono text-blue font-bold">#{a.orderId}</td>
+            {/* Reemplaza tu <td> del número de orden por este: */}
+<td 
+  className="p-3 font-mono text-blue-500 font-bold text-center cursor-pointer hover:underline hover:text-blue-600"
+  onClick={() => setSelectedApptModal(a)}
+>
+  #{a.orderId}
+</td>
             <td className="p-4">
   {new Date(a.date).toLocaleDateString(undefined, {
     day: '2-digit',
