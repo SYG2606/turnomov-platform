@@ -1821,180 +1821,187 @@ safeTimeout(() => {
         
         {rescheduleModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200"><Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl"><button onClick={()=>setRescheduleModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><XCircle/></button><h3 className="text-xl font-bold text-white mb-4">Reprogramar Turno</h3><div className="mb-4">{renderDateSelector((d)=>setRescheduleModal({...rescheduleModal, date: d}), rescheduleModal.date)}</div>{rescheduleModal.date && <div className="grid grid-cols-2 gap-4 mb-4"><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'morning'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='morning'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Mañana</button><button onClick={()=>setRescheduleModal({...rescheduleModal, timeBlock:'afternoon'})} className={`p-3 rounded-xl border text-center ${rescheduleModal.timeBlock==='afternoon'?'bg-orange-600 text-white border-orange-500':'bg-slate-800 text-slate-400 border-slate-700'}`}>Tarde</button></div>}<Button onClick={handleRescheduleSubmit} className="w-full">Confirmar Cambio</Button></Card></div>}
         
-        {confirmModal && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
-                <Card theme={theme} className="w-full max-w-sm border-red-500/30 bg-slate-900 shadow-2xl">
-                    <div className="flex justify-center mb-4 text-red-500">
-                        <AlertCircle size={48} />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2 text-center">{confirmModal.title}</h3>
-                    <p className="text-slate-400 mb-6 text-center text-sm">{confirmModal.msg}</p>
-                    <div className="flex gap-3">
-                        <Button 
-                            variant="secondary" 
-                            onClick={()=>setConfirmModal(null)} 
-                            className="flex-1 py-3"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button 
-                            variant="danger" 
-                            onClick={()=>{confirmModal.action();}} 
-                            className="flex-1 py-3"
-                        >
-                            Confirmar
-                        </Button>
-                    </div>
-                </Card>
-            </div>
-        )}
-    </main></div>
-  );
-{/* ================= MODAL DETALLE COMPLETO DE TURNO ================= */}
-{selectedApptModal && (
-  <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
-    <Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl overflow-hidden">
-      
-      {/* Botón Cerrar */}
-      <button 
-        onClick={() => setSelectedApptModal(null)} 
-        className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
-      >
-        <XCircle size={24}/>
-      </button>
-
-      {/* Indicador de Estado Lateral */}
-      <div className={`absolute top-0 left-0 w-1.5 h-full ${
-        selectedApptModal.status === 'listo' ? 'bg-emerald-500' :
-        selectedApptModal.status === 'en-proceso' ? 'bg-blue-500' :
-        selectedApptModal.status === 'recibido' ? 'bg-amber-500' : 'bg-slate-600'
-      }`}></div>
-
-      <div className="pl-2">
-        {/* Cabecera */}
-        <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
-          <div>
-            <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded">
-              ORDEN #{selectedApptModal.orderId}
-            </span>
-            <h3 className="text-2xl font-bold text-white mt-2 tracking-tight">
-              {selectedApptModal.bikeModel}
-            </h3>
-          </div>
-          <Badge status={selectedApptModal.status} labels={activeIndustry.statusLabels}/>
-        </div>
-
-        {/* Información en Cuadrícula */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Cliente</p>
-            <p className="text-sm text-white font-medium">{selectedApptModal.clientName}</p>
-            <p className="text-xs text-slate-400 font-mono">DNI: {selectedApptModal.clientDni}</p>
-            <p className="text-xs text-slate-400">Tel: {selectedApptModal.clientPhone}</p>
-          </div>
-
-          <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Servicio Asignado</p>
-            <p className="text-sm text-blue-400 font-bold">{selectedApptModal.serviceType}</p>
-            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-              <Calendar size={12}/> {new Date(selectedApptModal.date).toLocaleDateString()}
-            </p>
-            {selectedApptModal.mechanicName && (
-              <p className="text-xs text-emerald-400 mt-1 font-semibold">
-                🔧 {selectedApptModal.mechanicName}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Notas / Observaciones */}
-        <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 mb-6">
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Notas / Diagnóstico</p>
-          <p className="text-xs text-slate-300 italic whitespace-pre-wrap">
-            {selectedApptModal.notes || 'Sin observaciones registradas.'}
-          </p>
-        </div>
-
-        {/* Botón de Acción Principal (Cambio de Estado Rápido) */}
-        <div className="mb-4">
-          {selectedApptModal.status === 'pendiente' && (
-            <Button variant="secondary" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
-              onClick={() => {
-                setReceptionModal({appt: selectedApptModal, bikeModel: selectedApptModal.bikeModel, serviceType: selectedApptModal.serviceType, notes: selectedApptModal.notes || ''});
-                setSelectedApptModal(null);
-              }}>
-              <FileText size={16}/> Recepcionar Unidad
-            </Button>
-          )}
-
-          {selectedApptModal.status === 'recibido' && (
-            <Button variant="admin" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
-              onClick={() => { updateStatus(selectedApptModal.id, 'en-proceso'); setSelectedApptModal(null); }}>
-              <Wrench size={16}/> Iniciar Reparación
-            </Button>
-          )}
-
-          {selectedApptModal.status === 'en-proceso' && (
-            <Button variant="success" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
-              onClick={() => { updateStatus(selectedApptModal.id, 'listo'); setSelectedApptModal(null); }}>
-              <CheckCircle size={16}/> Finalizar Trabajo
-            </Button>
-          )}
-
-          {selectedApptModal.status === 'listo' && (
-            <div className="flex flex-col gap-2">
-              <Button variant="whatsapp" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
-                onClick={() => sendWhatsApp(selectedApptModal.clientPhone, selectedApptModal.clientName, selectedApptModal.bikeModel, 'listo')}>
-                <MessageCircle size={16}/> Enviar Alerta de Retiro (WhatsApp)
-              </Button>
-              <Button variant="success" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
-                onClick={() => { updateStatus(selectedApptModal.id, 'retirado', {deliveredAt: new Date().toISOString()}); setSelectedApptModal(null); }}>
-                <CheckCircle size={16}/> Marcar como Entregado
-              </Button>
+        {/* === MODAL CONFIRMACIÓN ADMINISTRADOR === */}
+        {confirmModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
+                <Card theme={theme} className="w-full max-w-sm border-red-500/30 bg-slate-900 shadow-2xl">
+                    <div className="flex justify-center mb-4 text-red-500">
+                        <AlertCircle size={48} />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2 text-center">{confirmModal.title}</h3>
+                    <p className="text-slate-400 mb-6 text-center text-sm">{confirmModal.msg}</p>
+                    <div className="flex gap-3">
+                        <Button 
+                            variant="secondary" 
+                            onClick={()=>setConfirmModal(null)} 
+                            className="flex-1 py-3"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button 
+                            variant="danger" 
+                            onClick={()=>{confirmModal.action();}} 
+                            className="flex-1 py-3"
+                        >
+                            Confirmar
+                        </Button>
+                    </div>
+                </Card>
             </div>
-          )}
-        </div>
+        )}
 
-        {/* Barra de Herramientas Secundaria (Iconos rápidos de administración) */}
-        <div className="flex justify-between items-center pt-4 border-t border-slate-800 gap-2">
-          <button
-            onClick={() => { sendWhatsApp(selectedApptModal.clientPhone, selectedApptModal.clientName, selectedApptModal.bikeModel, selectedApptModal.status); }}
-            className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
-            title="Chat de consulta"
-          >
-            <MessageCircle size={14}/> WhatsApp
-          </button>
+        {/* ================= MODAL DETALLE COMPLETO DE TURNO (AHORA ADENTRO DEL MAIN) ================= */}
+        {selectedApptModal && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200">
+            <Card theme={theme} className="w-full max-w-lg relative bg-slate-900 border-slate-700 shadow-2xl overflow-hidden text-white">
+              
+              {/* Botón Cerrar */}
+              <button 
+                onClick={() => setSelectedApptModal(null)} 
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+              >
+                <XCircle size={24}/>
+              </button>
 
-          {selectedApptModal.status !== 'pendiente' && (
-            <button
-              onClick={() => { printServiceOrder(selectedApptModal); }}
-              className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
-              title="Ticket térmico"
-            >
-              <Printer size={14}/> Ticket
-            </button>
-          )}
+              {/* Indicador de Estado Lateral */}
+              <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                selectedApptModal.status === 'listo' ? 'bg-emerald-500' :
+                selectedApptModal.status === 'en-proceso' ? 'bg-blue-500' :
+                selectedApptModal.status === 'recibido' ? 'bg-amber-500' : 'bg-slate-600'
+              }`}></div>
 
-          <button
-            onClick={() => { openRescheduleModal(selectedApptModal, 'admin'); setSelectedApptModal(null); }}
-            className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
-          >
-            <Edit size={14}/> Re-agendar
-          </button>
+              <div className="pl-2">
+                {/* Cabecera */}
+                <div className="flex justify-between items-start mb-6 border-b border-slate-800 pb-4">
+                  <div>
+                    <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-1 rounded">
+                      ORDEN #{selectedApptModal.orderId}
+                    </span>
+                    <h3 className="text-2xl font-bold text-white mt-2 tracking-tight">
+                      {selectedApptModal.bikeModel}
+                    </h3>
+                  </div>
+                  <Badge status={selectedApptModal.status} labels={activeIndustry.statusLabels}/>
+                </div>
 
-          <button
-            onClick={() => { handleDeleteAppointment(selectedApptModal.id); setSelectedApptModal(null); }}
-            className="p-2 bg-red-950/20 border border-red-900/30 text-red-400 rounded-xl hover:bg-red-900/30 transition"
-            title="Eliminar registro"
-          >
-            <Trash2 size={14}/>
-          </button>
-        </div>
+                {/* Información en Cuadrícula */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Cliente</p>
+                    <p className="text-sm text-white font-medium">{selectedApptModal.clientName}</p>
+                    <p className="text-xs text-slate-400 font-mono">DNI: {selectedApptModal.clientDni}</p>
+                    <p className="text-xs text-slate-400">Tel: {selectedApptModal.clientPhone}</p>
+                  </div>
 
-      </div>
-    </Card>
+                  <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Servicio Asignado</p>
+                    <p className="text-sm text-blue-400 font-bold">{selectedApptModal.serviceType}</p>
+                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                      <Calendar size={12}/> {new Date(selectedApptModal.date).toLocaleDateString()}
+                    </p>
+                    {selectedApptModal.mechanicName && (
+                      <p className="text-xs text-emerald-400 mt-1 font-semibold">
+                        🔧 {selectedApptModal.mechanicName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notas / Observaciones */}
+                <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/60 mb-6">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Notas / Diagnóstico</p>
+                  <p className="text-xs text-slate-300 italic whitespace-pre-wrap">
+                    {selectedApptModal.notes || 'Sin observaciones registradas.'}
+                  </p>
+                </div>
+
+                {/* Botón de Acción Principal (Cambio de Estado Rápido) */}
+                <div className="mb-4">
+                  {selectedApptModal.status === 'pendiente' && (
+                    <Button variant="secondary" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                      onClick={() => {
+                        setReceptionModal({appt: selectedApptModal, bikeModel: selectedApptModal.bikeModel, serviceType: selectedApptModal.serviceType, notes: selectedApptModal.notes || ''});
+                        setSelectedApptModal(null);
+                      }}>
+                      <FileText size={16}/> Recepcionar Unidad
+                    </Button>
+                  )}
+
+                  {selectedApptModal.status === 'recibido' && (
+                    <Button variant="admin" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                      onClick={() => { updateStatus(selectedApptModal.id, 'en-proceso'); setSelectedApptModal(null); }}>
+                      <Wrench size={16}/> Iniciar Reparación
+                    </Button>
+                  )}
+
+                  {selectedApptModal.status === 'en-proceso' && (
+                    <Button variant="success" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                      onClick={() => { updateStatus(selectedApptModal.id, 'listo'); setSelectedApptModal(null); }}>
+                      <CheckCircle size={16}/> Finalizar Trabajo
+                    </Button>
+                  )}
+
+                  {selectedApptModal.status === 'listo' && (
+                    <div className="flex flex-col gap-2">
+                      <Button variant="whatsapp" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                        onClick={() => sendWhatsApp(selectedApptModal.clientPhone, selectedApptModal.clientName, selectedApptModal.bikeModel, 'listo')}>
+                        <MessageCircle size={16}/> Enviar Alerta de Retiro (WhatsApp)
+                      </Button>
+                      <Button variant="success" theme={theme} className="w-full py-3 text-sm flex justify-center items-center gap-2"
+                        onClick={() => { updateStatus(selectedApptModal.id, 'retirado', {deliveredAt: new Date().toISOString()}); setSelectedApptModal(null); }}>
+                        <CheckCircle size={16}/> Marcar como Entregado
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Barra de Herramientas Secundaria */}
+                <div className="flex justify-between items-center pt-4 border-t border-slate-800 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { sendWhatsApp(selectedApptModal.clientPhone, selectedApptModal.clientName, selectedApptModal.bikeModel, selectedApptModal.status); }}
+                    className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
+                  >
+                    <MessageCircle size={14}/> WhatsApp
+                  </button>
+
+                  {selectedApptModal.status !== 'pendiente' && (
+                    <button
+                      type="button"
+                      onClick={() => { printServiceOrder(selectedApptModal); }}
+                      className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
+                    >
+                      <Printer size={14}/> Ticket
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => { openRescheduleModal(selectedApptModal, 'admin'); setSelectedApptModal(null); }}
+                    className="flex-1 p-2 bg-slate-950 border border-slate-800 text-slate-400 rounded-xl hover:bg-slate-800 text-xs flex justify-center items-center gap-1 transition"
+                  >
+                    <Edit size={14}/> Re-agendar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { handleDeleteAppointment(selectedApptModal.id); setSelectedApptModal(null); }}
+                    className="p-2 bg-red-950/20 border border-red-900/30 text-red-400 rounded-xl hover:bg-red-900/30 transition"
+                  >
+                    <Trash2 size={14}/>
+                  </button>
+                </div>
+
+              </div>
+            </Card>
+          </div>
+        )}
+
+    </main>
   </div>
-)}
+);
+}
+
   // --- VISTA ADMIN (SUB-VIEWS) ---
   return (
     <div className={`min-h-screen pb-20 transition-colors duration-300 ${themeClasses[theme].app}`}><Header /><div className="max-w-7xl mx-auto px-4 mt-6 border-b border-slate-800 flex flex-wrap gap-2 overflow-x-auto pb-1"><button onClick={()=>setSubView('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${subView==='dashboard'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}>Panel de Turnos</button>{appUser.isAdmin && <><button onClick={()=>setSubView('clients')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='clients'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Users size={16}/> Clientes</button><button onClick={()=>setSubView('stats')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='stats'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><BarChart3 size={16}/> Estadísticas</button><button onClick={()=>setSubView('config')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='config'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Settings size={16}/> Config</button><button onClick={()=>setSubView('mechanics-mgmt')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${subView==='mechanics-mgmt'?'bg-blue-600 text-white shadow-lg shadow-blue-900/30':'text-slate-400 hover:text-white hover:bg-slate-800'}`}><Shield size={16}/> Staff</button></>}</div>
